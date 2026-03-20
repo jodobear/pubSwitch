@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+set -eu
+
+cat <<'EOF'
+# Agent Brief
+
+Read now:
+- AGENTS.md
+- handoff.md
+- .private-docs/README.md
+- .private-docs/plans/build-plan.md
+- .private-docs/plans/follow-on-options-packet.md
+
+Load on demand:
+- .private-docs/plans/follow-on-options-packet.md
+- .private-docs/plans/demo-readiness-packet.md
+- .private-docs/plans/path-a-real-ots-chain-root-packet.md
+- .private-docs/plans/path-a-real-ots-chain-root-loop.md
+- .private-docs/plans/path-a-real-ots-chain-conflict-packet.md
+- .private-docs/plans/path-a-real-ots-chain-execution-packet.md
+- .private-docs/plans/path-a-real-ots-chain-parity-packet.md
+- .private-docs/plans/path-a-real-ots-scenario-replacement-packet.md
+- .private-docs/plans/path-a-real-ots-adoption-loop.md
+- .private-docs/plans/path-a-real-ots-adoption-doc-packet.md
+- .private-docs/plans/path-a-real-ots-bridge-packet.md
+- .private-docs/plans/path-a-real-ots-corpus-packet.md
+- .private-docs/plans/path-a-real-ots-bridge-loop.md
+- .private-docs/plans/ots-real-verification-foundation-packet.md
+- .private-docs/plans/path-a-real-ots-corpus-loop.md
+- .private-docs/plans/path-a-conflict-playback-loop.md
+- .private-docs/research/proposal-and-research-review.md
+- .private-docs/guides/PROCESS_CONTROL.md
+- .private-docs/guides/FAST_POC_GATE.md
+- docs/references/*
+EOF

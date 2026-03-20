@@ -1,0 +1,15 @@
+{
+  "name": "@tack/applesauce-adapters",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@tack/protocol-shared": "workspace:*",
+    "applesauce-core": "latest",
+    "applesauce-loaders": "latest",
+    "applesauce-relay": "latest"
+  }
+}
+

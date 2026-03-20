@@ -1,0 +1,14 @@
+{
+  "name": "@tack/ots-helper",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "bun src/index.ts"
+  },
+  "dependencies": {
+    "@tack/fixtures": "workspace:*",
+    "@tack/protocol-a": "workspace:*",
+    "@tack/protocol-shared": "workspace:*",
+    "opentimestamps": "^0.4.9"
+  }
+}

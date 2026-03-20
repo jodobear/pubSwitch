@@ -1,0 +1,8 @@
+node_modules/
+.bun/
+dist/
+coverage/
+.playwright-cli/
+.DS_Store
+*.log
+Screenshot_*.png
