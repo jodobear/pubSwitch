@@ -14,10 +14,12 @@ describe("stage stories", () => {
 
   test("maps the happy and contested stories to the intended packages", () => {
     expect(getStageStory("happy")).toMatchObject({
+      label: "Prepared Migration",
       shapeId: "path-a-live",
       packageId: "executed-happy-path",
     });
     expect(getStageStory("contested")).toMatchObject({
+      protocolLabel: "Prepared Migration",
       shapeId: "path-a-replay",
       packageId: "conflicting-executions",
     });

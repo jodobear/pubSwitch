@@ -190,22 +190,28 @@ Date: 2026-03-19
         - explicit scoping to the currently selected Path A scenario rather than "following every scenario"
         - a direct jump into Path C attestation after an executed `1777`
         - explicit local `accept` / `reject` / `ignore` choices as UI-only handling, not protocol actions
-      - a separate minimalist `pubSwitch` stage page now exists:
+      - a separate minimalist `pubSwitch` onstage surface now exists:
         - branding is `pubSwitch`
-        - it is cleaner and more presentation-first than the console
         - it is now the default onstage surface, while the old console is explicitly backstage
-        - it walks through publish -> view -> result with back / next / auto controls
-        - it reuses deterministic Path A / Path C playback models rather than replacing the operator console
-        - it now also exposes two curated Path A stage presets:
-          - `happy` -> `executed-happy-path`
-          - `contested` -> `conflicting-executions`
-        - the CLI accepts the same aliases for stage-safe demo scripts
-        - it now frames the onstage experience around five named stories instead of exposing internal act/scenario structure first:
+        - it has been rewritten away from the old generic publish/view/result explainer into a story-first product demo
+        - it now frames the onstage experience around five named stories:
           - `Sign Up`
-          - `Happy Rotation`
+          - `Prepared Migration`
           - `What Followers See`
           - `Social Confirmation`
           - `Contested Case`
+        - each story now has:
+          - one primary action area
+          - one client conclusion card
+          - one compact evidence rail
+        - onstage wording now follows the v2 public framing:
+          - `Prepared Migration`
+          - `Social Transition`
+          - follower/client actions are emphasized over internal implementation labels
+        - it still exposes two curated Path A stage presets underneath:
+          - `happy` -> `executed-happy-path`
+          - `contested` -> `conflicting-executions`
+        - the CLI accepts the same aliases for stage-safe demo scripts
       - onboarding now reads more like signup in both surfaces:
         - web onboarding collects handle + passphrase confirmation before backup export and publish
         - web onboarding now has a one-click finish-signup publish path and the relay connect control is back in the global header
@@ -219,14 +225,27 @@ Date: 2026-03-19
         - those local actions are a PoC UI inference for user handling, not protocol-defined wire behavior
     - the set-switch runtime crash caused by a stale synthetic event read is fixed
     - prepared historical-id scenario events still do not get reliable immediate echo/receipt behavior from all public relays, so CLI publish/onboard output reports both expected fixture state and any relay-observed state
+    - onstage event progression is now consistent across stories:
+      - `queued`
+      - `sent`
+      - `seen on relays`
+    - Path A prepared publish order now follows protocol logic instead of raw fixture timestamps:
+      - PMA
+      - 1040 for PMA
+      - PMU
+      - 1040 for PMU
+      - PMX
+    - the follower story now has a stronger preview path:
+      - if publish progressed but relay echo is lagging, the follower banner can still advance
+      - the UI labels that state explicitly as `sent to relays`
 - current active packet is `follow-on-options-packet.md`
 - no active autonomous implementation loop is currently queued
 - next execution target is optional follow-on work only if the operator explicitly chooses it
 - agreed PoC decisions and Path C anti-noise notes are captured in
   `proposal-and-research-review.md`
-- after the operator-console refactor, `bun run typecheck`, focused app tests, and `bun run build:demo`
-  are green; local Playwright smoke on this headless box is currently blocked by the available
-  browser tooling
+- after the onstage rewrite, `bun run typecheck`, focused app tests, and `bun run build:demo`
+  are green; Playwright CLI smoke on the headless box now works against the onstage surface via
+  `http://localhost:5173`
 
 ## Active Rules
 

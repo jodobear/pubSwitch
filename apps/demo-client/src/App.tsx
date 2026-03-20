@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { getSingleTagValue } from "@tack/protocol-shared";
+import { getSingleTagValue, type NostrEvent } from "@tack/protocol-shared";
 import {
   buildFollowerRotationNotice,
   buildScenarioPrompt,
@@ -28,7 +28,13 @@ import {
   type PathCAudienceScenarioId,
 } from "./path-c-audience-demo";
 import { redactRecoveryBundlePayload, buildRecoveryBundlePayloadFromPathAScenario } from "./recovery-bundle";
-import { buildPathAStageScene, buildPathCStageScene } from "./stage-view";
+import {
+  buildOnstageEventRows,
+  describeFollowerStage,
+  describePreparedMigrationStage,
+  describeSocialStage,
+  type OnstageSummary,
+} from "./onstage-view";
 import { getStageStory, STAGE_STORIES, type StageStoryId } from "./stage-stories";
 
 type ReplayModel =
@@ -155,6 +161,7 @@ export function App() {
   if (surfaceMode === "stage") {
     return (
         <StagePage
+          operator={operator}
           currentPackage={currentPackage}
           onBackToConsole={() => setSurfaceMode("console")}
           activeStoryId={activeStoryId}
@@ -276,69 +283,149 @@ export function App() {
 }
 
 function StagePage(props: {
+  operator: ReturnType<typeof useLiveOperator>;
   currentPackage: NonNullable<ReturnType<typeof useLiveOperator>["currentPackage"]>;
   onBackToConsole: () => void;
   activeStoryId: StageStoryId;
   setActiveStoryId: React.Dispatch<React.SetStateAction<StageStoryId>>;
 }) {
-  const { currentPackage, onBackToConsole, activeStoryId, setActiveStoryId } = props;
+  const { operator, currentPackage, onBackToConsole, activeStoryId, setActiveStoryId } = props;
   const [stageAuto, setStageAuto] = useState(false);
   const [stageIndex, setStageIndex] = useState(0);
-  const [pathCPlayback, setPathCPlayback] = useState<PathCLivePlayback | undefined>(undefined);
+  const [signupHandle, setSignupHandle] = useState("tack");
+  const [confirmPassphrase, setConfirmPassphrase] = useState("");
+  const [pathCAudience, setPathCAudience] = useState<PathCAudienceExperience | undefined>(undefined);
+  const [socialStepIndex, setSocialStepIndex] = useState(0);
+  const [socialLocalAction, setSocialLocalAction] = useState<AudienceLocalAction | undefined>(undefined);
+  const [followerDecision, setFollowerDecision] = useState<"accept" | "reject" | "ignore" | undefined>(undefined);
   const activeStory = getStageStory(activeStoryId);
-  const activeShapeMeta = getDemoShapeMeta(activeStory.shapeId);
+  const preparedSummary = describePreparedMigrationStage(operator.pathAState);
+  const followerNotice = buildFollowerRotationNotice({
+    pathAState: operator.pathAState,
+    observedProtocolKinds: operator.pathAProtocolEvents.map((event) => event.kind),
+  });
+  const followerSummary = describeFollowerStage(followerNotice);
+  const socialSummary = describeSocialStage(operator.pathCStateText);
+  const signupState =
+    currentPackage.lane === "path-a"
+      ? buildSignupState({
+          handle: signupHandle,
+          passphrase: operator.bundlePassphrase,
+          confirmPassphrase,
+          bundleReady: operator.bundleEnvelopeText.length > 0,
+          connected: operator.isConnected,
+          pmaSent: operator.publishCursor >= 1,
+          proofSent: operator.publishCursor >= 2,
+        })
+      : undefined;
+  const replayPlayback = useMemo(
+    () =>
+      activeStoryId === "contested" && currentPackage.lane === "path-a"
+        ? buildPathALivePlayback(currentPackage.scenario)
+        : undefined,
+    [activeStoryId, currentPackage],
+  );
+  const replayStep = replayPlayback?.steps[stageIndex];
+  const contestedSummary = replayStep ? describePreparedMigrationStage(replayStep.resolvedState) : undefined;
+  const socialStep = pathCAudience?.steps[socialStepIndex];
+  const socialStepCount = pathCAudience?.steps.length ?? 0;
+  const socialDecision =
+    socialStep ? describeAudienceDecision({ decision: socialLocalAction, step: socialStep }) : undefined;
+  const followerPlayback =
+    currentPackage.lane === "path-a" ? buildPathALivePlayback(currentPackage.scenario) : undefined;
+  const preparedMigrationEvent = currentPackage.preparedActions.find((action) => action.event.kind === 1776)?.event;
+  const preparedExecutionEvent = currentPackage.preparedActions.find((action) => action.event.kind === 1777)?.event;
+  const preparedMigrationPubkey =
+    currentPackage.lane === "path-a"
+      ? preparedMigrationEvent
+        ? getSingleTagValue(preparedMigrationEvent, "m") ?? "(none)"
+        : "(none)"
+      : "(none)";
+  const preparedSuccessorPubkey =
+    currentPackage.lane === "path-a"
+      ? preparedExecutionEvent
+        ? getSingleTagValue(preparedExecutionEvent, "n") ?? "(none)"
+        : "(none)"
+      : "(none)";
+  const signupEventRows =
+    currentPackage.lane === "path-a"
+      ? buildOnstageEventRows({
+          actions: currentPackage.preparedActions,
+          observedEvents: operator.relevantObservedEvents,
+          publishCursor: operator.publishCursor,
+          kinds: [1776, 1040],
+        })
+      : [];
+  const pathAEventRows =
+    currentPackage.lane === "path-a"
+      ? buildOnstageEventRows({
+          actions: currentPackage.preparedActions,
+          observedEvents: operator.relevantObservedEvents,
+          publishCursor: operator.publishCursor,
+          kinds: [1776, 1040, 1779, 1777],
+        })
+      : [];
+  const pathCEventRows =
+    currentPackage.lane === "path-c"
+      ? buildOnstageEventRows({
+          actions: currentPackage.preparedActions,
+          observedEvents: operator.relevantObservedEvents,
+          publishCursor: operator.publishCursor,
+          kinds: [1778, 31778],
+        })
+      : [];
+  const followerObservedCount = operator.pathAProtocolEvents.length + operator.pathAProofEvents.length;
+  const followerProjectedStep =
+    followerPlayback?.steps[Math.min(operator.publishCursor, Math.max(followerPlayback.steps.length - 1, 0))];
+  const followerProjectedNotice = followerProjectedStep
+    ? buildFollowerRotationNotice({
+        pathAState: followerProjectedStep.resolvedState,
+        observedProtocolKinds: followerProjectedStep.visibleScenario.events.map((event) => event.kind),
+      })
+    : undefined;
+  const useProjectedFollowerNotice =
+    activeStoryId === "followers" &&
+    operator.publishCursor > 0 &&
+    operator.publishCursor > followerObservedCount &&
+    followerProjectedNotice;
+  const onstageFollowerSummary = describeFollowerStage(
+    useProjectedFollowerNotice ? followerProjectedNotice : followerNotice,
+  );
 
   useEffect(() => {
     setStageIndex(0);
     setStageAuto(false);
-    setPathCPlayback(undefined);
+    setSocialStepIndex(0);
+    setSocialLocalAction(undefined);
+    setFollowerDecision(undefined);
+    setConfirmPassphrase("");
+    if (activeStoryId === "sign-up") {
+      setSignupHandle("tack");
+    }
   }, [activeStoryId, currentPackage.id]);
 
   useEffect(() => {
-    if (currentPackage.lane !== "path-c") {
+    if (activeStoryId !== "social" || currentPackage.lane !== "path-c") {
+      setPathCAudience(undefined);
       return;
     }
+
     let cancelled = false;
-    buildPathCLivePlayback(currentPackage.scenario).then((playback) => {
+    getPathCAudienceExperience(currentPackage.id as PathCAudienceScenarioId).then((experience) => {
       if (!cancelled) {
-        setPathCPlayback(playback);
+        setPathCAudience(experience);
       }
     });
+
     return () => {
       cancelled = true;
     };
-  }, [currentPackage]);
-
-  const pathAPlayback = currentPackage.lane === "path-a" ? buildPathALivePlayback(currentPackage.scenario) : undefined;
-  const currentPlayback = currentPackage.lane === "path-a" ? pathAPlayback : pathCPlayback;
-  const steps = currentPlayback?.steps ?? [];
-  const actions = currentPlayback?.actions ?? [];
-  const step = steps[stageIndex];
-  const pathAStep = currentPackage.lane === "path-a" ? pathAPlayback?.steps[stageIndex] : undefined;
-  const pathCStep = currentPackage.lane === "path-c" ? pathCPlayback?.steps[stageIndex] : undefined;
-  const scene =
-    currentPackage.lane === "path-a" && pathAStep
-      ? buildPathAStageScene({
-          shape: activeStory.shapeId,
-          shapeMeta: activeShapeMeta,
-          title: pathAStep.title,
-          stepTitle: pathAStep.title,
-          stepDetail: pathAStep.detail,
-          state: pathAStep.resolvedState,
-        })
-      : currentPackage.lane === "path-c" && pathCStep
-        ? buildPathCStageScene({
-            shapeMeta: activeShapeMeta,
-            title: pathCStep.title,
-            stepTitle: pathCStep.title,
-            stepDetail: pathCStep.detail,
-            state: pathCStep.resolvedState,
-          })
-        : undefined;
+  }, [activeStoryId, currentPackage]);
 
   useEffect(() => {
-    if (!stageAuto || steps.length <= 1 || stageIndex >= steps.length - 1) {
-      if (stageIndex >= steps.length - 1) {
+    const steps = replayPlayback?.steps ?? [];
+    if (activeStoryId !== "contested" || !stageAuto || steps.length <= 1 || stageIndex >= steps.length - 1) {
+      if (activeStoryId === "contested" && stageIndex >= steps.length - 1) {
         setStageAuto(false);
       }
       return;
@@ -349,22 +436,25 @@ function StagePage(props: {
     }, 1400);
 
     return () => window.clearTimeout(timer);
-  }, [stageAuto, stageIndex, steps.length]);
+  }, [activeStoryId, replayPlayback, stageAuto, stageIndex]);
 
   return (
-    <main className="stage-page">
-      <header className="stage-topbar">
-        <div className="stage-brand">
+    <main className="stage-page stage-page-v2">
+      <header className="stage-topbar onstage-topbar">
+        <div className="stage-brand onstage-brand">
           <p className="eyebrow">Onstage</p>
           <h1>pubSwitch</h1>
           <p className="sublead">{activeStory.label}</p>
+          {activeStory.label !== activeStory.protocolLabel ? (
+            <p className="stage-protocol-label">{activeStory.protocolLabel}</p>
+          ) : null}
         </div>
-        <div className="stage-actions">
-          <div className="shape-tabs" role="tablist" aria-label="Demo acts">
+        <div className="stage-actions onstage-actions">
+          <div className="shape-tabs story-nav" role="tablist" aria-label="Stories">
             {STAGE_STORIES.map((story) => (
               <button
                 key={story.id}
-                className={`tab-chip ${story.id === activeStoryId ? "active" : ""}`}
+                className={`tab-chip story-chip ${story.id === activeStoryId ? "active" : ""}`}
                 type="button"
                 onClick={() => setActiveStoryId(story.id)}
               >
@@ -372,96 +462,620 @@ function StagePage(props: {
               </button>
             ))}
           </div>
-          <button className="button ghost" type="button" onClick={onBackToConsole}>
-            Backstage
-          </button>
+          <div className="topbar-actions">
+            <button className="button primary" type="button" onClick={() => operator.setIsConnected((current) => !current)}>
+              {operator.isConnected ? "Disconnect relays" : "Connect relays"}
+            </button>
+            <button className="button ghost" type="button" onClick={operator.resetSession}>
+              Fresh watch
+            </button>
+            <button className="button ghost" type="button" onClick={onBackToConsole}>
+              Backstage
+            </button>
+          </div>
         </div>
       </header>
 
-      <section className="stage-shell">
-        <article className={`stage-hero ${scene?.tone ?? "neutral"}`}>
-          <span className="story-step">
-            {currentPackage.title} · {stageIndex}/{Math.max(steps.length - 1, 0)}
-          </span>
-          <strong>{scene?.title ?? "Loading"}</strong>
-          <p>{scene?.subtitle ?? activeShapeMeta.detail}</p>
+      <section className="stage-shell onstage-shell">
+        <article className="onstage-hero">
+          <div>
+            <span className="story-step">{activeStory.protocolLabel}</span>
+            <strong>{activeStory.label}</strong>
+            <p>{activeStory.detail}</p>
+          </div>
+          <div className="onstage-status-row">
+            <span className={`pill ${operator.isConnected ? "ok" : "muted"}`}>
+              {operator.isConnected ? `${operator.openRelayCount}/${operator.relayUrls.length} relays live` : "offline"}
+            </span>
+            {operator.relayUrls.map((url) => {
+              const status = operator.connectionMap[url] ?? { url, state: "idle" as const };
+              return (
+                <span key={url} className="relay-token onstage-relay" title={status.detail ?? status.state}>
+                  <span className={`relay-light ${status.state}`}></span>
+                  {url.replace(/^wss?:\/\//, "")}
+                </span>
+              );
+            })}
+          </div>
         </article>
 
-        <section className="stage-grid">
-          <article className="stage-panel">
-            <span className="mini-label">publish</span>
-            <strong>{actions[Math.max(stageIndex - 1, 0)]?.title ?? "Start"}</strong>
-            <p>{actions[Math.max(stageIndex - 1, 0)]?.subtitle ?? "Begin the walkthrough."}</p>
-          </article>
+        {activeStoryId === "sign-up" && currentPackage.lane === "path-a" && signupState ? (
+          <section className="onstage-grid">
+            <div className="onstage-main">
+              <article className="stage-card stage-card--primary">
+                <span className="mini-label">Do this</span>
+                <h3>Create account package</h3>
+                <p>Choose a handle, protect the backup, then publish 1776 and 1040.</p>
+                <label className="field compact">
+                  <span>Handle</span>
+                  <input
+                    className="input"
+                    value={signupHandle}
+                    onChange={(event) => setSignupHandle(event.currentTarget.value.replace(/\s+/g, "-"))}
+                  />
+                </label>
+                <div className="signup-grid">
+                  <input
+                    className="input"
+                    type="password"
+                    placeholder="Passphrase"
+                    value={operator.bundlePassphrase}
+                    onChange={(event) => operator.setBundlePassphrase(event.currentTarget.value)}
+                  />
+                  <input
+                    className="input"
+                    type="password"
+                    placeholder="Confirm"
+                    value={confirmPassphrase}
+                    onChange={(event) => setConfirmPassphrase(event.currentTarget.value)}
+                  />
+                </div>
+                <div className="button-stack">
+                  <button
+                    className="button"
+                    type="button"
+                    disabled={!signupState.canCreatePackage}
+                    onClick={() => {
+                      void operator.createBundle()
+                        .then(() => operator.setOperatorMessage(`Account package created for ${signupHandle}.`))
+                        .catch((error: unknown) =>
+                          operator.setOperatorMessage(error instanceof Error ? error.message : String(error)),
+                        );
+                    }}
+                  >
+                    Create account package
+                  </button>
+                  <button
+                    className="button primary"
+                    type="button"
+                    disabled={!signupState.canFinishSignup || operator.publishCursor >= 2}
+                    onClick={() => {
+                      void (async () => {
+                        if (!operator.bundleEnvelopeText) {
+                          await operator.createBundle();
+                        }
+                        await operator.publishAllRemainingActions();
+                        operator.setOperatorMessage(`Signup complete for ${signupHandle}.`);
+                      })().catch((error: unknown) =>
+                        operator.setOperatorMessage(error instanceof Error ? error.message : String(error)),
+                      );
+                    }}
+                  >
+                    {operator.publishCursor >= 2 ? "Published" : "Finish signup"}
+                  </button>
+                </div>
+              </article>
 
-          <article className="stage-panel">
-            <span className="mini-label">view</span>
-            <strong>{scene?.title ?? "Waiting"}</strong>
-            <p>{scene?.subtitle ?? "No step selected yet."}</p>
-          </article>
+              <StageSummaryCard
+                heading="Client sees"
+                summary={preparedSummary}
+                metrics={[
+                  { label: "handle", value: signupHandle },
+                  { label: "proof", value: operator.proofStatusLabel },
+                  {
+                    label: "identity",
+                    value: describeIdentityState({
+                      demoPackage: currentPackage,
+                      pathAState: operator.pathAState,
+                      pathCStateText: operator.pathCStateText,
+                    }),
+                  },
+                ]}
+              />
+            </div>
 
-          <article className="stage-panel">
-            <span className="mini-label">result</span>
-            <strong>{scene?.resultLabel ?? "idle"}</strong>
-            <p>
-              {currentPackage.lane === "path-a"
-                ? pathAStep
-                  ? `${pathAStep.visibleScenario.events.length} protocol / ${pathAStep.visibleScenario.otsProofs.length} proofs`
-                  : "waiting"
-                : pathCStep
-                  ? `${pathCStep.visibleScenario.claims.length} claims / ${pathCStep.visibleScenario.attestations.length} attestations`
-                  : "waiting"}
-            </p>
-          </article>
-        </section>
+            <div className="onstage-side">
+              <StageStatsCard
+                title="Keys"
+                items={[
+                  { label: "old key", value: shortHex(currentPackage.scenario.oldPubkey) },
+                  { label: "migration key", value: shortHex(preparedMigrationPubkey) },
+                  { label: "next send", value: operator.nextPreparedAction?.title ?? "complete" },
+                ]}
+              />
+              <StageEventStatusCard title="1776 + 1040" rows={signupEventRows} />
+              {operator.bundleEnvelopeText ? (
+                <details className="details drawer">
+                  <summary>Encrypted backup</summary>
+                  <pre>{operator.bundleEnvelopeText}</pre>
+                </details>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
-        <section className="stage-controls">
-          <button
-            className="button ghost"
-            type="button"
-            disabled={stageIndex <= 0}
-            onClick={() => setStageIndex((current) => Math.max(0, current - 1))}
-          >
-            Back
-          </button>
-          <button
-            className="button primary"
-            type="button"
-            disabled={steps.length === 0 || stageIndex >= steps.length - 1}
-            onClick={() => setStageIndex((current) => Math.min(current + 1, steps.length - 1))}
-          >
-            Next
-          </button>
-          <button
-            className="button ghost"
-            type="button"
-            disabled={steps.length <= 1}
-            onClick={() => setStageAuto((current) => !current)}
-          >
-            {stageAuto ? "Stop" : "Auto"}
-          </button>
-        </section>
+        {activeStoryId === "happy" && currentPackage.lane === "path-a" ? (
+          <section className="onstage-grid">
+            <div className="onstage-main">
+              <article className="stage-card stage-card--primary">
+                <span className="mini-label">Do this</span>
+                <h3>Publish the rotation</h3>
+                <p>Send a normal note, then walk the prepared migration chain to one successor.</p>
+                <div className="composer-inline">
+                  <input
+                    className="input"
+                    value={operator.noteDraft}
+                    onChange={(event) => operator.setNoteDraft(event.currentTarget.value)}
+                  />
+                  <button
+                    className="button"
+                    type="button"
+                    disabled={!operator.isConnected}
+                    onClick={() => {
+                      void operator.publishLiveNote().catch((error: unknown) =>
+                        operator.setOperatorMessage(error instanceof Error ? error.message : String(error)),
+                      );
+                    }}
+                  >
+                    Send note
+                  </button>
+                </div>
+                <div className="button-stack">
+                  <button
+                    className="button primary"
+                    type="button"
+                    disabled={!operator.isConnected || !operator.nextPreparedAction}
+                    onClick={() => {
+                      void operator.publishNextPreparedAction().catch((error: unknown) =>
+                        operator.setOperatorMessage(error instanceof Error ? error.message : String(error)),
+                      );
+                    }}
+                  >
+                    {operator.nextPreparedAction ? operator.nextPreparedAction.title : "Rotation complete"}
+                  </button>
+                  <button
+                    className="button ghost"
+                    type="button"
+                    disabled={!operator.isConnected || operator.publishCursor >= currentPackage.preparedActions.length}
+                    onClick={() => {
+                      void operator.publishAllRemainingActions().catch((error: unknown) =>
+                        operator.setOperatorMessage(error instanceof Error ? error.message : String(error)),
+                      );
+                    }}
+                  >
+                    Publish full script ({Math.max(currentPackage.preparedActions.length - operator.publishCursor, 0)} events)
+                  </button>
+                </div>
+              </article>
 
-        <section className="stage-strip">
-          <span className="mini-label">visible now</span>
-          <div className="stage-pills">
-            {currentPackage.lane === "path-a" && pathAStep
-              ? [...pathAStep.visibleScenario.events, ...pathAStep.visibleScenario.otsProofs].map((event) => (
-                  <span key={event.id} className="badge kind">
-                    kind {event.kind}
-                  </span>
-                ))
-              : currentPackage.lane === "path-c" && pathCStep
-                ? [...pathCStep.visibleScenario.claims, ...pathCStep.visibleScenario.attestations].map((event) => (
-                    <span key={event.id} className="badge kind">
-                      kind {event.kind}
-                    </span>
-                  ))
-                : null}
-          </div>
-        </section>
+              <StageSummaryCard
+                heading="Client sees"
+                summary={preparedSummary}
+                metrics={[
+                  { label: "old key", value: shortHex(currentPackage.scenario.oldPubkey) },
+                  {
+                    label: "successor",
+                    value: shortHex(preparedSuccessorPubkey),
+                  },
+                  {
+                    label: "suggest",
+                    value: operator.pathAState?.state === "executed" ? "Follow successor" : "Inspect",
+                  },
+                ]}
+              />
+            </div>
+
+            <div className="onstage-side">
+              <StageStatsCard
+                title="Live state"
+                items={[
+                  { label: "notes", value: String(operator.noteEvents.length) },
+                  { label: "protocol", value: String(operator.pathAProtocolEvents.length) },
+                  { label: "proofs", value: String(operator.pathAProofEvents.length) },
+                ]}
+              />
+              <StageEventStatusCard title="Event progress" rows={pathAEventRows} />
+              <StageEventsCard
+                title="Now on relays"
+                events={operator.relevantObservedEvents}
+                emptyMessage="Connect, send a note, then publish the prepared events."
+              />
+            </div>
+          </section>
+        ) : null}
+
+        {activeStoryId === "followers" && currentPackage.lane === "path-a" ? (
+          <section className="onstage-grid">
+            <div className="onstage-main">
+              <article className="stage-card stage-card--primary">
+                <span className="mini-label">Do this</span>
+                <h3>Trigger the follower banner</h3>
+                <p>Publish the followed account events, then show how a good client reacts.</p>
+                <div className="button-stack">
+                  <button
+                    className="button primary"
+                    type="button"
+                    disabled={!operator.isConnected || !operator.nextPreparedAction}
+                    onClick={() => {
+                      void operator.publishNextPreparedAction().catch((error: unknown) =>
+                        operator.setOperatorMessage(error instanceof Error ? error.message : String(error)),
+                      );
+                    }}
+                  >
+                    {operator.nextPreparedAction ? operator.nextPreparedAction.title : "All follower events published"}
+                  </button>
+                  <button
+                    className="button ghost"
+                    type="button"
+                    disabled={!operator.isConnected || operator.publishCursor >= currentPackage.preparedActions.length}
+                    onClick={() => {
+                      void operator.publishAllRemainingActions().catch((error: unknown) =>
+                        operator.setOperatorMessage(error instanceof Error ? error.message : String(error)),
+                      );
+                    }}
+                  >
+                    Publish full script ({Math.max(currentPackage.preparedActions.length - operator.publishCursor, 0)} events)
+                  </button>
+                </div>
+                <div className="button-row">
+                  <button
+                    className={`button ${followerDecision === "accept" ? "primary" : "ghost"}`}
+                    type="button"
+                    onClick={() => setFollowerDecision("accept")}
+                  >
+                    Follow successor
+                  </button>
+                  <button
+                    className={`button ${followerDecision === "reject" ? "primary" : "ghost"}`}
+                    type="button"
+                    onClick={() => setFollowerDecision("reject")}
+                  >
+                    Follow both
+                  </button>
+                  <button
+                    className={`button ${followerDecision === "ignore" ? "primary" : "ghost"}`}
+                    type="button"
+                    onClick={() => setFollowerDecision("ignore")}
+                  >
+                    Inspect
+                  </button>
+                </div>
+              </article>
+
+              <StageSummaryCard
+                heading="Follower client"
+                summary={onstageFollowerSummary}
+                metrics={[
+                  { label: "following", value: shortHex(currentPackage.scenario.oldPubkey) },
+                  {
+                    label: "suggested",
+                    value:
+                      followerDecision === "accept"
+                        ? "Follow successor"
+                        : followerDecision === "reject"
+                          ? "Follow both"
+                          : followerDecision === "ignore"
+                            ? "Inspect evidence"
+                            : (useProjectedFollowerNotice ? followerProjectedNotice : followerNotice).recommendedAction ?? "Stay quiet",
+                  },
+                  { label: "proof", value: operator.proofStatusLabel },
+                  { label: "source", value: useProjectedFollowerNotice ? "sent to relays" : "seen on relays" },
+                ]}
+              />
+            </div>
+
+            <div className="onstage-side">
+              <StageStatsCard
+                title="Follower options"
+                items={[
+                  {
+                    label: "primary",
+                    value: (useProjectedFollowerNotice ? followerProjectedNotice : followerNotice).showAttestAction ? "Show successor" : "Keep old key",
+                  },
+                  {
+                    label: "cta",
+                    value: (useProjectedFollowerNotice ? followerProjectedNotice : followerNotice).showAttestAction ? "Ask for social confirmation" : "Inspect",
+                  },
+                  { label: "state", value: onstageFollowerSummary.label },
+                ]}
+              />
+              <StageEventStatusCard title="Event progress" rows={pathAEventRows} />
+              <StageEventsCard
+                title="Now on relays"
+                events={operator.relevantObservedEvents}
+                emptyMessage="Publish the followed account events first."
+              />
+            </div>
+          </section>
+        ) : null}
+
+        {activeStoryId === "social" && currentPackage.lane === "path-c" ? (
+          <section className="onstage-grid">
+            <div className="onstage-main">
+              <article className="stage-card stage-card--primary">
+                <span className="mini-label">Do this</span>
+                <h3>Publish social signals</h3>
+                <p>Make the claim visible, then let followed people weigh in.</p>
+                <div className="button-stack">
+                  <button
+                    className="button primary"
+                    type="button"
+                    disabled={!operator.isConnected || !operator.nextPreparedAction}
+                    onClick={() => {
+                      void operator.publishNextPreparedAction().catch((error: unknown) =>
+                        operator.setOperatorMessage(error instanceof Error ? error.message : String(error)),
+                      );
+                    }}
+                  >
+                    {operator.nextPreparedAction ? operator.nextPreparedAction.title : "Social script complete"}
+                  </button>
+                  <div className="button-row">
+                    <button
+                      className="button ghost"
+                      type="button"
+                      disabled={!pathCAudience || socialStepIndex <= 0}
+                      onClick={() => setSocialStepIndex((current) => Math.max(0, current - 1))}
+                    >
+                      Back
+                    </button>
+                    <button
+                      className="button ghost"
+                      type="button"
+                      disabled={!pathCAudience || socialStepIndex >= socialStepCount - 1}
+                      onClick={() => setSocialStepIndex((current) => Math.min(socialStepCount - 1, current + 1))}
+                    >
+                      Next view
+                    </button>
+                  </div>
+                </div>
+                <div className="button-row">
+                  <button
+                    className={`button ${socialLocalAction === "accept" ? "primary" : "ghost"}`}
+                    type="button"
+                    onClick={() => setSocialLocalAction("accept")}
+                  >
+                    Support
+                  </button>
+                  <button
+                    className={`button ${socialLocalAction === "reject" ? "primary" : "ghost"}`}
+                    type="button"
+                    onClick={() => setSocialLocalAction("reject")}
+                  >
+                    Oppose
+                  </button>
+                  <button
+                    className={`button ${socialLocalAction === "ignore" ? "primary" : "ghost"}`}
+                    type="button"
+                    onClick={() => setSocialLocalAction("ignore")}
+                  >
+                    Ignore
+                  </button>
+                </div>
+              </article>
+
+              <StageSummaryCard
+                heading="Viewer sees"
+                summary={socialSummary}
+                metrics={[
+                  { label: "followers", value: socialStep ? String(socialStep.followerCount) : "21" },
+                  { label: "mutuals", value: socialStep ? String(socialStep.mutualCount) : "12" },
+                  { label: "trusted", value: socialStep ? String(socialStep.viewerTrustedCount) : "5" },
+                ]}
+              />
+
+              {socialDecision ? (
+                <article className={`stage-card stage-card--summary ${socialDecision.tone}`}>
+                  <span className="mini-label">Local choice</span>
+                  <h3>{socialDecision.title}</h3>
+                  <p>{socialDecision.detail}</p>
+                </article>
+              ) : null}
+            </div>
+
+            <div className="onstage-side">
+              <StageStatsCard
+                title="Current social step"
+                items={[
+                  { label: "step", value: socialStep ? socialStep.label : "loading" },
+                  { label: "claims", value: socialStep ? String(socialStep.visibleClaims.length) : "0" },
+                  { label: "attests", value: socialStep ? String(socialStep.visibleAttestations.length) : "0" },
+                ]}
+              />
+              <StageEventStatusCard title="Event progress" rows={pathCEventRows} />
+              <StageEventsCard
+                title="Now on relays"
+                events={operator.relevantObservedEvents}
+                emptyMessage="Publish 1778 and 31778 events to light this up."
+              />
+            </div>
+          </section>
+        ) : null}
+
+        {activeStoryId === "contested" && replayPlayback && replayStep && contestedSummary ? (
+          <section className="onstage-grid">
+            <div className="onstage-main">
+              <article className="stage-card stage-card--primary">
+                <span className="mini-label">Walkthrough</span>
+                <h3>{replayStep.title}</h3>
+                <p>{replayStep.detail}</p>
+                <div className="stage-controls">
+                  <button
+                    className="button ghost"
+                    type="button"
+                    disabled={stageIndex <= 0}
+                    onClick={() => setStageIndex((current) => Math.max(0, current - 1))}
+                  >
+                    Back
+                  </button>
+                  <button
+                    className="button primary"
+                    type="button"
+                    disabled={stageIndex >= replayPlayback.steps.length - 1}
+                    onClick={() => setStageIndex((current) => Math.min(current + 1, replayPlayback.steps.length - 1))}
+                  >
+                    Next
+                  </button>
+                  <button
+                    className="button ghost"
+                    type="button"
+                    disabled={replayPlayback.steps.length <= 1}
+                    onClick={() => setStageAuto((current) => !current)}
+                  >
+                    {stageAuto ? "Stop" : "Auto"}
+                  </button>
+                </div>
+              </article>
+
+              <StageSummaryCard
+                heading="Client sees"
+                summary={contestedSummary}
+                metrics={[
+                  { label: "step", value: `${stageIndex}/${Math.max(replayPlayback.steps.length - 1, 0)}` },
+                  { label: "protocol", value: String(replayStep.visibleScenario.events.length) },
+                  { label: "proofs", value: String(replayStep.visibleScenario.otsProofs.length) },
+                ]}
+              />
+            </div>
+
+            <div className="onstage-side">
+              <StageStatsCard
+                title="Visible now"
+                items={replayStep.clientFacts.map((fact, index) => ({
+                  label: `fact ${index + 1}`,
+                  value: fact,
+                }))}
+              />
+              <StageEventsCard
+                title="Visible events"
+                events={[...replayStep.visibleScenario.events, ...replayStep.visibleScenario.otsProofs]}
+                emptyMessage="No conflict evidence visible yet."
+              />
+            </div>
+          </section>
+        ) : null}
+
+        {operator.operatorMessage ? <p className="message onstage-message">{operator.operatorMessage}</p> : null}
       </section>
     </main>
+  );
+}
+
+function StageSummaryCard(props: {
+  heading: string;
+  summary: OnstageSummary;
+  metrics: Array<{ label: string; value: string }>;
+}) {
+  const { heading, summary, metrics } = props;
+
+  return (
+    <article className={`stage-card stage-card--summary ${summary.tone}`}>
+      <span className="mini-label">{heading}</span>
+      <div className="summary-header">
+        <span className={`pill ${summary.tone === "neutral" ? "muted" : summary.tone}`}>{summary.label}</span>
+      </div>
+      <h3>{summary.title}</h3>
+      <p>{summary.detail}</p>
+      <div className="stage-stats-grid">
+        {metrics.map((metric) => (
+          <div key={metric.label}>
+            <span className="mini-label">{metric.label}</span>
+            <strong>{metric.value}</strong>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function StageStatsCard(props: {
+  title: string;
+  items: Array<{ label: string; value: string }>;
+}) {
+  const { title, items } = props;
+
+  return (
+    <article className="stage-card stage-card--side">
+      <span className="mini-label">{title}</span>
+      <div className="stage-stats-list">
+        {items.map((item) => (
+          <div key={item.label} className="stage-stat-row">
+            <span>{item.label}</span>
+            <strong>{item.value}</strong>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function StageEventStatusCard(props: {
+  title: string;
+  rows: Array<{ id: string; kind: number; label: string; status: "queued" | "sent" | "observed" }>;
+}) {
+  const { title, rows } = props;
+
+  return (
+    <article className="stage-card stage-card--side">
+      <span className="mini-label">{title}</span>
+      <div className="stage-stats-list">
+        {rows.map((row) => (
+          <div key={row.id} className="stage-status-row">
+            <div className="stage-status-copy">
+              <strong>{row.label}</strong>
+              <span>kind {row.kind}</span>
+            </div>
+            <span className={`pill ${row.status === "observed" ? "ok" : row.status === "sent" ? "warn" : "muted"}`}>
+              {row.status === "observed" ? "seen on relays" : row.status === "sent" ? "sent" : "queued"}
+            </span>
+          </div>
+        ))}
+      </div>
+    </article>
+  );
+}
+
+function StageEventsCard(props: {
+  title: string;
+  events: NostrEvent[];
+  emptyMessage: string;
+}) {
+  const { title, events, emptyMessage } = props;
+
+  return (
+    <article className="stage-card stage-card--events">
+      <span className="mini-label">{title}</span>
+      {events.length === 0 ? (
+        <p>{emptyMessage}</p>
+      ) : (
+        <>
+          <div className="stage-pills">
+            {events.map((event) => (
+              <span key={event.id} className="badge kind">
+                kind {event.kind}
+              </span>
+            ))}
+          </div>
+          <ul className="stage-event-list">
+            {events.slice(0, 6).map((event) => (
+              <li key={event.id}>
+                <strong>{describeObservedEvent(event)}</strong>
+                <span>{shortHex(event.id)}</span>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+    </article>
   );
 }
 
@@ -615,7 +1229,7 @@ function FollowerAct(props: {
                 );
               }}
             >
-              {operator.nextPreparedAction ? `Publish ${operator.nextPreparedAction.title}` : "Published"}
+              {operator.nextPreparedAction ? operator.nextPreparedAction.title : "Published"}
             </button>
             <button
               className="button ghost"
@@ -862,7 +1476,7 @@ function OnboardingAct(props: {
                 );
               }}
             >
-              {operator.nextPreparedAction ? `Publish ${operator.nextPreparedAction.title}` : "Onboarding published"}
+              {operator.nextPreparedAction ? operator.nextPreparedAction.title : "Onboarding published"}
             </button>
             <button
               className="button"
@@ -947,7 +1561,7 @@ function LiveAct(props: {
                 );
               }}
             >
-              {operator.nextPreparedAction ? `Publish ${operator.nextPreparedAction.title}` : "Script complete"}
+              {operator.nextPreparedAction ? operator.nextPreparedAction.title : "Script complete"}
             </button>
             <button
               className="button ghost"

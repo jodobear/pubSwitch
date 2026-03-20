@@ -90,7 +90,7 @@ function buildPathAPackage(scenario: PathAFixtureScenario): PathADemoPackage {
   ]);
 
   const preparedActions = [...scenario.events, ...scenario.otsProofs]
-    .sort((a, b) => a.created_at - b.created_at || kindPriority(a.kind) - kindPriority(b.kind))
+    .sort(comparePathAPublishEvents)
     .map((event) => ({
       id: event.id ?? `${event.kind}:${event.created_at}`,
       title: describePathAAction(event),
@@ -235,6 +235,41 @@ function describePathAActionDetail(event: NostrEvent): string {
   }
 
   return `OTS proof targets ${shortHex(getSingleTagValue(event, "e"))}.`;
+}
+
+function comparePathAPublishEvents(a: NostrEvent, b: NostrEvent): number {
+  return (
+    pathAPublishPriority(a) - pathAPublishPriority(b) ||
+    a.created_at - b.created_at ||
+    (a.id ?? "").localeCompare(b.id ?? "")
+  );
+}
+
+function pathAPublishPriority(event: NostrEvent): number {
+  if (event.kind === PMA_KIND) {
+    return 0;
+  }
+
+  if (event.kind === OTS_KIND) {
+    const targetKind = Number(getSingleTagValue(event, "k") ?? -1);
+    if (targetKind === PMA_KIND) {
+      return 1;
+    }
+    if (targetKind === PMU_KIND) {
+      return 3;
+    }
+    return 5;
+  }
+
+  if (event.kind === PMU_KIND) {
+    return 2;
+  }
+
+  if (event.kind === PMX_KIND) {
+    return 4;
+  }
+
+  return 6;
 }
 
 function describePathCAction(event: NostrEvent, scenario: PathCFixtureScenario): string {

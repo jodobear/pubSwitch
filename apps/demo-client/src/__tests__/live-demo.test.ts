@@ -41,6 +41,24 @@ describe("live demo playback", () => {
     expect(finalStep?.title).toBe("Plural root conflict");
   });
 
+  test("builds executed happy-path playback in publish order", async () => {
+    const scenario = await getPathAFixtureScenario("executed-happy-path");
+    if (!scenario) {
+      throw new Error("missing executed-happy-path scenario");
+    }
+
+    const playback = buildPathALivePlayback(scenario);
+
+    expect(playback.actions.map((action) => action.title)).toEqual([
+      "Publish PMA",
+      "Attach Bitcoin-confirmed 1040 proof",
+      "Publish PMU",
+      "Attach Bitcoin-confirmed 1040 proof",
+      "Publish PMX",
+      "Publish PMX",
+    ]);
+  });
+
   test("builds a stepwise Path C playback from claims to followed support", async () => {
     const scenario = await getPathCFixtureScenario("socially-supported");
     if (!scenario) {

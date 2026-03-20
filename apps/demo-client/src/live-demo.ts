@@ -246,7 +246,39 @@ function toPathCAttestationAction(event: NostrEvent, scenario: PathCFixtureScena
 }
 
 function compareDemoActions(a: LiveDemoAction, b: LiveDemoAction): number {
+  if (a.lane === "path-a" && b.lane === "path-a") {
+    return (
+      pathAActionPriority(a) - pathAActionPriority(b) ||
+      a.createdAt - b.createdAt ||
+      a.id.localeCompare(b.id)
+    );
+  }
+
   return a.createdAt - b.createdAt || familyPriority(a.family) - familyPriority(b.family) || a.id.localeCompare(b.id);
+}
+
+function pathAActionPriority(action: LiveDemoAction): number {
+  if (action.event.kind === PMA_KIND) {
+    return 0;
+  }
+
+  if (action.event.kind === PMU_KIND) {
+    return 2;
+  }
+
+  if (action.event.kind === PMX_KIND) {
+    return 4;
+  }
+
+  const targetKind = Number(getSingleTagValue(action.event, "k") ?? -1);
+  if (targetKind === PMA_KIND) {
+    return 1;
+  }
+  if (targetKind === PMU_KIND) {
+    return 3;
+  }
+
+  return 5;
 }
 
 function familyPriority(family: LiveDemoAction["family"]): number {

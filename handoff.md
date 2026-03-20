@@ -258,15 +258,20 @@ Current execution state for `tack`.
 - the browser demo now has two top-level presentation surfaces:
   - `pubSwitch` stage is now the default onstage surface
   - the existing console remains the fuller backstage operator/observer workspace
-  - the stage page walks through publish -> view -> result with one button press per step and optional autoplay
-  - it is deterministic and presentation-first, not the full relay-operator surface
-  - the stage page no longer exposes raw internal act/scenario structure first; it now starts from five named stories:
+  - the onstage surface is no longer a generic publish/view/result explainer
+  - it is now a story-first product demo with dedicated screens for:
     - `Sign Up`
-    - `Happy Rotation`
+    - `Prepared Migration`
     - `What Followers See`
     - `Social Confirmation`
     - `Contested Case`
-  - the stage page also exposes two curated Path A presets on top of the real proof-backed fixture set:
+  - each onstage story now has one primary action area, one client conclusion card, and one compact evidence rail
+  - the stage surface now follows the v2 public framing:
+    - `Prepared Migration`
+    - `Social Transition`
+    - follower UX and client actions are presentation-first
+    - internal `Path A` / `Path C` language is kept backstage
+  - the stage also exposes two curated Path A presets on top of the real proof-backed fixture set:
     - `happy` -> `executed-happy-path`
     - `contested` -> `conflicting-executions`
   - the CLI now accepts the same aliases, so `bun run demo:story happy` and `bun run demo:story contested` work directly
@@ -293,17 +298,32 @@ Current execution state for `tack`.
   - a live kind `1` note was published and observed back through the relay feed
   - prepared protocol events now surface relay receipts explicitly so duplicate/fresh-set issues are
     visible during the demo
+- browser smoke also passed for the new onstage story surface using Playwright CLI:
+  - `Sign Up`, `Prepared Migration`, and `What Followers See` loaded without blanking
+  - the new onstage layout rendered the intended story nav, action card, client conclusion card, and evidence rail
+- onstage event progression is now consistent across stories:
+  - `queued`
+  - `sent`
+  - `seen on relays`
+- Path A prepared publish order now follows protocol logic instead of raw fixture timestamps:
+  - PMA
+  - 1040 for PMA
+  - PMU
+  - 1040 for PMU
+  - PMX
+- the follower story now has a stronger preview path:
+  - if publish progressed but relay echo is lagging, the follower banner can still advance
+  - the UI labels that state explicitly as `sent to relays`
 - fixed prepared protocol events still use fixed ids, so repeat live demos need fresh prepared sets
   if a relay has already seen a given PMA/PMU/PMX/1040 event id
-- after the operator-console refactor, `bun run typecheck`, focused app tests, and `bun run build:demo`
-  are green; attempted local Playwright smoke on this headless box is currently blocked because the
-  available wrapper launches headed Chrome without X and the workspace does not have the
-  `playwright` module installed for the `js_repl` headless path
+- after the onstage rewrite, `bun run typecheck`, focused app tests, `bun run build:demo`, and
+  Playwright CLI smoke are green
 - the current active slice is `follow-on-options-packet.md`
 - no active autonomous implementation loop is currently queued
 - Agreed PoC decisions, Path C anti-noise posture, and a simple threat table are recorded in
   `.private-docs/research/proposal-and-research-review.md`.
-- Repo is still not a git repository.
+- repo is now a git repository with `origin` set to `git@github.com:jodobear/pubSwitch.git`
+- current pushed branch is `main` at commit `7fc6bc8` (`Initial pubSwitch PoC`)
 
 ## Active Control Docs
 

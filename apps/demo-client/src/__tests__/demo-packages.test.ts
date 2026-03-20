@@ -16,6 +16,20 @@ describe("live demo package helpers", () => {
     ]);
   });
 
+  test("orders executed happy-path publish actions in human protocol order", async () => {
+    const packages = await getLiveDemoPackages();
+    const happy = packages.find((entry) => entry.id === "executed-happy-path");
+
+    expect(happy?.preparedActions.map((action) => action.title)).toEqual([
+      "Publish 1776 PMA",
+      "Publish 1040 proof",
+      "Publish 1779 PMU",
+      "Publish 1040 proof",
+      "Publish 1777 PMX",
+      "Publish 1777 PMX",
+    ]);
+  });
+
   test("extracts OTS calendar hints from pending proof bytes", async () => {
     const packages = await getLiveDemoPackages();
     const pending = packages.find((entry) => entry.id === "pending-ots");
