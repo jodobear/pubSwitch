@@ -6,3 +6,5 @@ coverage/
 .DS_Store
 *.log
 Screenshot_*.png
+docs/v2/
+docs/references/
