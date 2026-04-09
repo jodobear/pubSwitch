@@ -17,6 +17,8 @@ import {
   type NostrTag,
 } from "@tack/protocol-shared";
 
+export * from "./v3";
+
 export const PROTOCOL_A_EVENT_KINDS = [1776, 1779, 1777, 1040] as const;
 
 export const PMA_KIND = 1776;

@@ -69,6 +69,7 @@ export type SocialTransitionState =
 
 export type ResolveSocialTransitionInput = {
   viewerFollowSet: Set<Hex32>;
+  viewerTrustedSet?: Set<Hex32>;
   oldPubkey: Hex32;
   newPubkey: Hex32;
   claims: NostrEvent[];
@@ -110,7 +111,7 @@ export type ValidatedAttestation = {
 };
 
 export async function buildSocialClaim(input: {
-  role: "old" | "new";
+  role?: "old" | "new";
   oldPubkey: Hex32;
   newPubkey: Hex32;
   signer: SignerLike;
@@ -126,6 +127,10 @@ export async function buildSocialClaim(input: {
 
   const signerPubkey = await input.signer.getPublicKey();
   assertLowercaseHex32(signerPubkey, "signerPubkey");
+
+  if (signerPubkey !== input.oldPubkey && signerPubkey !== input.newPubkey) {
+    throw new ProtocolError("social claim signer must equal oldPubkey or newPubkey");
+  }
 
   if (input.role === "old" && signerPubkey !== input.oldPubkey) {
     throw new ProtocolError("old-role claim signer must equal oldPubkey");
@@ -144,7 +149,6 @@ export async function buildSocialClaim(input: {
       ["d", transitionId],
       ["o", input.oldPubkey],
       ["n", input.newPubkey],
-      ["r", input.role],
       ["alt", STC_ALT],
     ],
     content: input.content ?? "",
@@ -231,22 +235,13 @@ export async function validateSocialClaim(event: NostrEvent): Promise<ValidatedC
     return tags;
   }
 
-  const roleValues = getTagValues(event, "r");
-  if (roleValues.length !== 1) {
-    return invalid("invalid_r_tag", "STC must contain exactly one r tag");
+  if (getTagValues(event, "r").length > 0) {
+    return invalid("unexpected_r_tag", "STC must not contain an r tag");
   }
 
-  const role = roleValues[0];
-  if (role !== "old" && role !== "new") {
-    return invalid("invalid_role", 'STC r tag must be "old" or "new"');
-  }
-
-  if (role === "old" && event.pubkey !== tags.oldPubkey) {
-    return invalid("role_pubkey_mismatch", "old-role STC pubkey must equal oldPubkey");
-  }
-
-  if (role === "new" && event.pubkey !== tags.newPubkey) {
-    return invalid("role_pubkey_mismatch", "new-role STC pubkey must equal newPubkey");
+  const role = event.pubkey === tags.oldPubkey ? "old" : event.pubkey === tags.newPubkey ? "new" : undefined;
+  if (!role) {
+    return invalid("role_pubkey_mismatch", "STC pubkey must equal oldPubkey or newPubkey");
   }
 
   return {
@@ -342,6 +337,7 @@ export async function resolveSocialTransition(
   const opposePubkeys: Hex32[] = [];
   const selfAssertedSupportPubkeys: Hex32[] = [];
   const selfAssertedOpposePubkeys: Hex32[] = [];
+  const trustedSet = input.viewerTrustedSet ?? new Set<Hex32>();
 
   for (const attestation of liveAttestations) {
     const isSelfAttestation =
@@ -350,7 +346,10 @@ export async function resolveSocialTransition(
     if (attestation.stance === "support") {
       if (isSelfAttestation) {
         selfAssertedSupportPubkeys.push(attestation.attestorPubkey);
-      } else if (input.viewerFollowSet.has(attestation.attestorPubkey)) {
+      } else if (
+        input.viewerFollowSet.has(attestation.attestorPubkey) ||
+        trustedSet.has(attestation.attestorPubkey)
+      ) {
         supportPubkeys.push(attestation.attestorPubkey);
       }
     }
@@ -358,7 +357,10 @@ export async function resolveSocialTransition(
     if (attestation.stance === "oppose") {
       if (isSelfAttestation) {
         selfAssertedOpposePubkeys.push(attestation.attestorPubkey);
-      } else if (input.viewerFollowSet.has(attestation.attestorPubkey)) {
+      } else if (
+        input.viewerFollowSet.has(attestation.attestorPubkey) ||
+        trustedSet.has(attestation.attestorPubkey)
+      ) {
         opposePubkeys.push(attestation.attestorPubkey);
       }
     }
@@ -493,7 +495,7 @@ function latestAttestations(attestations: ValidatedAttestation[]): ValidatedAtte
 
     if (
       attestation.event.created_at === existing.event.created_at &&
-      attestation.attestationId > existing.attestationId
+      attestation.attestationId < existing.attestationId
     ) {
       latest.set(key, attestation);
     }

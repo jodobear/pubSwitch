@@ -36,7 +36,7 @@ describe("buildSocialClaim", () => {
     expect(event.kind).toBe(1778);
     expect(event.pubkey).toBe(OLD_PUBKEY);
     expect(event.content).toBe("rotated keys");
-    expect(event.tags.map((tag) => tag[0])).toEqual(["d", "o", "n", "r", "alt"]);
+    expect(event.tags.map((tag) => tag[0])).toEqual(["d", "o", "n", "alt"]);
   });
 });
 
@@ -241,6 +241,55 @@ describe("resolveSocialTransition", () => {
       claimRoles: ["old"],
       supportPubkeys: [ATTESTOR_A],
       selfAssertedSupportPubkeys: [NEW_PUBKEY],
+      selfAssertedOpposePubkeys: [],
+    });
+  });
+
+  test("uses trusted pubkeys and keeps the lowest id on same-timestamp ties", async () => {
+    const claim = await buildSocialClaim({
+      oldPubkey: OLD_PUBKEY,
+      newPubkey: NEW_PUBKEY,
+      signer: createFakeSigner(OLD_PUBKEY),
+      createdAt: 1_700_100_110,
+    });
+    const support = await buildSocialAttestation({
+      oldPubkey: OLD_PUBKEY,
+      newPubkey: NEW_PUBKEY,
+      attestorSigner: createFakeSigner(ATTESTOR_A),
+      stance: "support",
+      createdAt: 1_700_100_111,
+    });
+    const oppose = await buildSocialAttestation({
+      oldPubkey: OLD_PUBKEY,
+      newPubkey: NEW_PUBKEY,
+      attestorSigner: createFakeSigner(ATTESTOR_A),
+      stance: "oppose",
+      createdAt: 1_700_100_111,
+      content: "same timestamp tie",
+    });
+    const [lowerIdEvent, higherIdEvent] = [support, oppose].sort((a, b) => a.id!.localeCompare(b.id!));
+    const expectedState =
+      lowerIdEvent.tags.find((tag) => tag[0] === "s")?.[1] === "support" ? "socially_supported" : "socially_opposed";
+
+    expect(
+      await resolveSocialTransition({
+        viewerFollowSet: new Set(),
+        viewerTrustedSet: new Set([ATTESTOR_A]),
+        oldPubkey: OLD_PUBKEY,
+        newPubkey: NEW_PUBKEY,
+        claims: [claim],
+        attestations: [higherIdEvent, lowerIdEvent],
+      }),
+    ).toEqual({
+      state: expectedState,
+      oldPubkey: OLD_PUBKEY,
+      newPubkey: NEW_PUBKEY,
+      claimIds: [claim.id!],
+      claimRoles: ["old"],
+      ...(expectedState === "socially_supported"
+        ? { supportPubkeys: [ATTESTOR_A] }
+        : { opposePubkeys: [ATTESTOR_A] }),
+      selfAssertedSupportPubkeys: [],
       selfAssertedOpposePubkeys: [],
     });
   });
