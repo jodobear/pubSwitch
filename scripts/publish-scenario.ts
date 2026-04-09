@@ -1,14 +1,27 @@
 import {
   type PathAFixtureScenario,
   getPathAFixtureScenario,
+  getPathAV3FixtureScenario,
   getPathCFixtureScenario,
 } from "../packages/fixtures/src/index";
+import {
+  buildPreparedBundleFromScenario,
+  buildPreparedPublishPlan,
+  buildSocialBundleFromScenario,
+  buildSocialPublishPlan,
+  cliInspectTransition,
+  writePreparedBundle,
+  writeSocialBundle,
+} from "./protocol-cli-lib";
 
 const scenarioId = Bun.argv[2] ?? "executed-happy-path";
 const pathAScenario = await getPathAFixtureScenario(scenarioId);
-const pathCScenario = pathAScenario ? undefined : await getPathCFixtureScenario(scenarioId);
+const pathAV3Scenario = pathAScenario ? undefined : await getPathAV3FixtureScenario(scenarioId);
+const pathCScenario = pathAScenario || pathAV3Scenario ? undefined : await getPathCFixtureScenario(scenarioId);
+const asJson = Bun.argv.includes("--json");
+const asBundle = Bun.argv.includes("--bundle");
 
-if (!pathAScenario && !pathCScenario) {
+if (!pathAScenario && !pathAV3Scenario && !pathCScenario) {
   console.error(`Unknown scenario: ${scenarioId}`);
   process.exit(1);
 }
@@ -33,16 +46,87 @@ if (pathAScenario) {
   }
 }
 
-if (pathCScenario) {
-  console.log(`# Publish plan for path-c:${pathCScenario.id}`);
-  console.log(`# ${pathCScenario.title}`);
-
-  for (const claim of pathCScenario.claims) {
-    printPublishEvent(claim);
+if (pathAV3Scenario) {
+  const bundle = buildPreparedBundleFromScenario(pathAV3Scenario);
+  if (asBundle) {
+    console.log(writePreparedBundle(bundle));
+    process.exit(0);
   }
 
-  for (const attestation of pathCScenario.attestations) {
-    printPublishEvent(attestation);
+  const inspected = await cliInspectTransition({ preparedBundle: bundle });
+  const publishPlan = buildPreparedPublishPlan(bundle);
+  if (asJson) {
+    console.log(
+      JSON.stringify(
+        {
+          path: "path-a-v3",
+          scenarioId: pathAV3Scenario.id,
+          title: pathAV3Scenario.title,
+          preparedState: inspected.prepared ?? { state: "none" },
+          bundle,
+          publishPlan: publishPlan.map((entry) => ({
+            step: entry.step,
+            targetEventId: entry.targetEventId,
+            event: entry.event,
+          })),
+        },
+        null,
+        2,
+      ),
+    );
+    process.exit(0);
+  }
+
+  console.log(`# Publish plan for path-a-v3:${pathAV3Scenario.id}`);
+  console.log(`# ${pathAV3Scenario.title}`);
+  console.log(`# prepared state: ${inspected.prepared?.state ?? "none"}`);
+  console.log(`# bundle: ${bundle.type} events=${bundle.events.length} proofs=${bundle.otsProofs.length}`);
+
+  for (const entry of publishPlan) {
+    printPublishEvent(entry.event, entry.step, entry.targetEventId);
+  }
+}
+
+if (pathCScenario) {
+  const bundle = buildSocialBundleFromScenario(pathCScenario);
+  if (asBundle) {
+    console.log(writeSocialBundle(bundle));
+    process.exit(0);
+  }
+
+  const inspected = await cliInspectTransition({
+    socialBundle: bundle,
+    viewerFollowSet: new Set(pathCScenario.viewerFollowPubkeys),
+  });
+  const publishPlan = buildSocialPublishPlan(bundle);
+  if (asJson) {
+    console.log(
+      JSON.stringify(
+        {
+          path: "path-c",
+          scenarioId: pathCScenario.id,
+          title: pathCScenario.title,
+          socialState: inspected.social ?? { state: "none" },
+          bundle,
+          publishPlan: publishPlan.map((entry) => ({
+            step: entry.step,
+            event: entry.event,
+          })),
+        },
+        null,
+        2,
+      ),
+    );
+    process.exit(0);
+  }
+
+  console.log(`# Publish plan for path-c:${pathCScenario.id}`);
+  console.log(`# ${pathCScenario.title}`);
+  console.log(`# social state: ${inspected.social?.state ?? "none"}`);
+  console.log(`# bundle: ${bundle.type} events=${bundle.events.length}`);
+
+  for (const entry of publishPlan) {
+    printPublishEvent(entry.event, entry.step);
   }
 }
 
@@ -54,10 +138,12 @@ function printPublishEvent(event: {
   tags: string[][];
   content: string;
   sig?: string;
-}) {
+}, step?: string, targetEventId?: string) {
   console.log(
     JSON.stringify({
       publish: {
+        step,
+        targetEventId,
         id: event.id,
         kind: event.kind,
         pubkey: event.pubkey,

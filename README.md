@@ -4,111 +4,167 @@ PoC workspace for a proposed Nostr key-rotation protocol suite.
 
 Two independent protocol paths:
 
-- **Path A — Prepared Migration** (`kind:1776`, `1777`, `1779` + NIP-03 `kind:1040`)
-- **Path C — Social Transition Claims/Attestations** (`kind:1778`, `31778`)
+- **Path A — Prepared Migration**: `kind:1776`, `1779`, `1777` plus NIP-03 `kind:1040`
+- **Path C — Social Transition**: `kind:1778`, `31778`
 
----
+## Current Shape
 
-## Protocol overview
+- the authoritative implementation surface is CLI-first
+- the public operator commands are:
+  - `prepared-migration`
+  - `social-transition`
+  - `operate-transition`
+- the browser app in `apps/legacy-demo-client` is quarantined legacy context
 
-### Path A: Prepared Migration (NIP-XX)
-
-An opt-in cryptographic migration protocol. Before any key loss or compromise, the identity key `O` enrolls a separate migration key `M` that can later authorize rotation to a successor key `N`.
-
-Three event kinds:
-
-| Kind | Name | Signed by | Purpose |
-|------|------|-----------|---------|
-| `1776` | PMA — Prepared Migration Authority | `O` | Enrolls migration key `M`; must be Bitcoin-anchored via NIP-03 |
-| `1779` | PMU — Prepared Migration Authority Update | current `M` | Rotates the active migration key; requires detached consent from `O` and the new `M` |
-| `1777` | PMX — Prepared Migration Execution | active `M` | Executes migration to successor `N`; requires detached consent from `N` |
-
-Resolution produces one of: `none`, `prepared_enrolled`, `prepared_migrated`, `conflicting_roots`, `conflicting_authority_updates`, `conflicting_executions`.
-
-PMAs and PMUs require at least one valid NIP-03 (`kind:1040`) Bitcoin-anchored OTS proof. PMX events do not.
-
-### Path C: Social Transition Claims & Attestations (NIP-XY)
-
-A social-graph signal protocol. Either the old or new key can publish an immutable claim; any observer can publish a mutable attestation expressing support, opposition, or uncertainty.
-
-Two event kinds:
-
-| Kind | Name | Signed by | Purpose |
-|------|------|-----------|---------|
-| `1778` | STC — Social Transition Claim | `O` or `N` | Immutable statement that transition `(O → N)` exists |
-| `31778` | STA — Social Transition Attestation | any observer | Latest-state stance (`support` / `oppose` / `uncertain`) toward the transition |
-
-Resolution is follow-set-aware and produces: `none`, `claimed`, `socially_supported`, `socially_opposed`, `socially_split`.
-
-Self-assertions by `O` or `N` are shown separately and do not count toward third-party corroboration.
-
-### Transition ID
-
-Both protocols share a deterministic transition identifier:
-
-```
-SHA-256( UTF8("nostr-social-transition:v1") || 0x00 || <32 bytes O> || 0x00 || <32 bytes N> )
-```
-
-This allows cross-protocol presentation without creating a dependency between the protocols.
-
----
-
-## Running the demo
+## Quick Start
 
 ```bash
-bun install          # install dependencies
-bun run dev:demo     # start Vite dev server (demo-client SPA)
-bun run typecheck    # tsc --noEmit across all packages/apps
-bun test             # run all tests
-bun run check        # typecheck + test together
+bun install
+bun run cli --help
+bun run check:active
 ```
 
-### Demo stories
+Optional legacy browser smoke:
 
 ```bash
-bun run demo:story happy          # clean rotation scenario
-bun run demo:story contested      # conflicting execution scenario
-bun run demo:walkthrough          # terminal walkthrough
+bun test apps/legacy-demo-client
+bun run --cwd apps/legacy-demo-client build
 ```
 
-### Publishing / watching relay events
+## Operator Workflows
+
+### Prepared Migration
+
+Start a fresh Path A workflow:
 
 ```bash
-bun run demo:cli publish <scenario-id>   # publish scenario events to relays
-bun run demo:cli watch <scenario-id>     # subscribe and watch relay events
+bun run cli prepared-migration \
+  --old-secret <hex> \
+  --migration-secret <hex> \
+  --next-migration-secret <hex> \
+  --new-secret <hex> \
+  --out-dir output/prepared \
+  --root-proof bitcoin_confirmed --root-anchor-height 840100 \
+  --update-proof bitcoin_confirmed --update-anchor-height 840101
 ```
 
-### Verification
+Resume from a saved bundle or bundle directory:
 
 ```bash
-bun scripts/verify-scenario.ts          # verify fixture scenarios
-bun run verify:real-ots-corpus          # verify real OTS corpus items
+bun run cli prepared-migration \
+  --bundle-dir output/prepared \
+  --out-dir output/prepared \
+  --old-secret <hex> \
+  --current-migration-secret <hex> \
+  --next-migration-secret <hex> \
+  --new-secret <hex> \
+  --root-proof-event root-proof.json \
+  --update-proof-summary update-proof-summary.json
 ```
 
----
+### Social Transition
 
-## Repo structure
+Append a claim when `--stance` is omitted, or an attestation when `--stance` is supplied:
 
+```bash
+bun run cli social-transition \
+  --prepared-bundle-dir output/prepared \
+  --social-bundle-dir output/social \
+  --signer-secret <hex> \
+  --stance support \
+  --out-dir output/social \
+  --json
 ```
-packages/
-  protocol-shared        # Nostr types, canonical JSON, Schnorr, transition-id
-  protocol-a             # Path A builders, validators, resolver
-  protocol-c             # Path C builders, validators, resolver
-  fixtures               # Deterministic test scenarios with real keypairs
-  applesauce-adapters    # Thin bridge to applesauce (app layer only)
+
+`social-transition` can also work from explicit `--old-pubkey` and `--new-pubkey` when you are not
+deriving the pair from a prepared bundle.
+
+### Combined Operator Flow
+
+Use `operate-transition` as the only saved-bundle inspect/publish/watch route:
+
+```bash
+bun run cli operate-transition \
+  --prepared-bundle-dir output/prepared \
+  --social-bundle-dir output/social \
+  --publish \
+  --watch-seconds 8 \
+  --json
+```
+
+With no `--publish` and no `--watch-seconds`, `operate-transition` is the canonical inspection
+command.
+
+Use `--require-fully-relayable` when publish should fail instead of warning on summary-only local
+proof posture.
+
+## CLI Contract
+
+All three public commands support `--json`.
+
+Success JSON includes:
+
+- `ok: true`
+- `command`
+- `mode` where applicable
+- `warning` as an array
+- command-specific `input`
+- command-specific `output` / `outputs` / `inspection` / `operatorReport`
+
+Failure JSON includes:
+
+- `ok: false`
+- `command`
+- `error.code`
+- `error.message`
+- `error.details`
+
+Exit codes are stable:
+
+- `1` input, flag, bundle, or protocol-state failure
+- `2` relay publish or watch failure
+- `3` unexpected internal failure
+
+The workflow commands reject:
+
+- unknown flags
+- repeated singular flags
+- empty CSV list flags
+- malformed hex pubkeys and secrets
+- malformed prepared/social bundle sources
+
+## Verification
+
+```bash
+bun run check:active
+bun scripts/verify-scenario.ts
+bun scripts/publish-scenario.ts <id>
+bun run verify:real-ots-corpus
+```
+
+## Repo Structure
+
+```text
 apps/
-  demo-client            # React + Vite SPA — stage view and operator console
-  ots-helper             # Node-side OTS proof inspection (not bundled in browser)
+  legacy-demo-client   quarantined browser demo surface
+  ots-helper           local proof inspection and real-OTS helper
+packages/
+  evidence-bundles     shared prepared/social bundle import-export
+  fixtures             deterministic scenarios
+  protocol-a           Path A codecs, validators, resolver
+  protocol-c           Path C codecs, validators, resolver
+  protocol-shared      shared Nostr, crypto, transition helpers
+scripts/
+  protocol-cli.ts      public operator CLI
+  verify-scenario.ts   fixture verification tooling
+  publish-scenario.ts  fixture publish-plan tooling
 docs/
-  v3/                    # Current NIP drafts
+  v3/                  active protocol drafts
 ```
 
----
+## Non-Goals
 
-## Non-goals
-
-- production hardening
-- full Nostr client fork
-- automatic social-graph migration
-- final NIP submission polish before the PoC is proven
+- browser-first implementation
+- general social client behavior
+- Path C overriding Path A cryptographic validity
+- production release packaging in this PoC repo

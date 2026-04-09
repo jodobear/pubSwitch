@@ -12,11 +12,17 @@ import {
   PMX_KIND,
   OTS_KIND,
   VERIFIED_ANCHOR_HEIGHT_TAG,
+  buildPmaV3,
+  buildPmuV3,
+  buildPmxV3,
   buildPma,
   buildPmu,
   buildPmx,
   computeNostrEventId,
+  resolvePreparedMigrationV3,
   resolvePreparedMigration,
+  summarizeLegacyOtsProofs,
+  type PreparedMigrationV3State,
   type DetachedSignerLike,
   type PreparedMigrationState,
   type SignerLike,
@@ -29,28 +35,10 @@ import {
   type SocialTransitionState,
 } from "../../protocol-c/src/index";
 export {
-  getPathAConflictPlaybackAutonomousLoop,
-  getPathARealOtsAdoptionAutonomousLoop,
-  getPathARealOtsChainRootAutonomousLoop,
-  getPathARealOtsCorpusAutonomousLoop,
-  getPathARealOtsBridgeAutonomousLoop,
-  getProofEvidenceAutonomousLoop,
-  getPathAConflictStateAutonomousLoop,
-  getVerificationCredibilityAutonomousLoop,
-  type AutonomousLoopPlan,
-  type AutonomousLoopSlice,
-} from "./autonomous-loop";
-export {
   getPathARealOtsCorpus,
   getPathARealOtsCorpusItem,
   type PathARealOtsCorpusItem,
 } from "./path-a-real-ots";
-export {
-  buildDemoWalkthroughPlan,
-  type DemoWalkthroughPlan,
-  type DemoWalkthroughScenarioRef,
-  type DemoWalkthroughSection,
-} from "./demo-walkthrough";
 import { getPathARealOtsCorpusItem, type PathARealOtsCorpusItem } from "./path-a-real-ots";
 
 const OLD_SECRET_KEY = "0000000000000000000000000000000000000000000000000000000000000001";
@@ -96,6 +84,17 @@ export type PathAFixtureScenario = {
   expectedState: PreparedMigrationState;
 };
 
+export type PathAV3FixtureScenario = {
+  id: string;
+  title: string;
+  summary: string;
+  notes: string[];
+  oldPubkey: Hex32;
+  events: NostrEvent[];
+  otsProofs: NostrEvent[];
+  expectedState: PreparedMigrationV3State;
+};
+
 export type PathCFixtureScenario = {
   id: string;
   title: string;
@@ -110,6 +109,7 @@ export type PathCFixtureScenario = {
 };
 
 let cachedPathAScenariosPromise: Promise<PathAFixtureScenario[]> | undefined;
+let cachedPathAV3ScenariosPromise: Promise<PathAV3FixtureScenario[]> | undefined;
 let cachedPathCScenariosPromise: Promise<PathCFixtureScenario[]> | undefined;
 
 export async function getPathAFixtureScenarios(): Promise<PathAFixtureScenario[]> {
@@ -127,6 +127,21 @@ export async function getPathAFixtureScenario(
   return scenarios.find((scenario) => scenario.id === id);
 }
 
+export async function getPathAV3FixtureScenarios(): Promise<PathAV3FixtureScenario[]> {
+  if (!cachedPathAV3ScenariosPromise) {
+    cachedPathAV3ScenariosPromise = buildPathAV3FixtureScenarios();
+  }
+
+  return cachedPathAV3ScenariosPromise;
+}
+
+export async function getPathAV3FixtureScenario(
+  id: string,
+): Promise<PathAV3FixtureScenario | undefined> {
+  const scenarios = await getPathAV3FixtureScenarios();
+  return scenarios.find((scenario) => scenario.id === id);
+}
+
 export function evaluatePathAFixtureScenario(
   scenario: PathAFixtureScenario,
 ): PreparedMigrationState {
@@ -134,6 +149,16 @@ export function evaluatePathAFixtureScenario(
     oldPubkey: scenario.oldPubkey,
     events: scenario.events,
     otsProofs: scenario.otsProofs,
+  });
+}
+
+export function evaluatePathAV3FixtureScenario(
+  scenario: PathAV3FixtureScenario,
+): PreparedMigrationV3State {
+  return resolvePreparedMigrationV3({
+    oldPubkey: scenario.oldPubkey,
+    events: scenario.events,
+    proofs: summarizeLegacyOtsProofs(scenario.otsProofs),
   });
 }
 
@@ -186,6 +211,395 @@ function buildPathCFixtureScenarios(): Promise<PathCFixtureScenario[]> {
     buildSociallySupportedScenario(),
     buildSociallySplitScenario(),
     buildSelfAssertedNoiseScenario(),
+  ]);
+}
+
+async function buildV3PendingOtsScenario(): Promise<PathAV3FixtureScenario> {
+  const pma = await buildPmaV3({
+    oldSigner: createFakeSigner(OLD_PUBKEY, "v3-pending-root"),
+    migrationPubkey: MIGRATION_PUBKEY,
+    createdAt: 1_800_000_000,
+  });
+
+  return {
+    id: "v3-pending-ots",
+    title: "V3 Pending OTS",
+    summary: "A v3 PMA without a Bitcoin-confirmed proof does not become valid Prepared Migration evidence.",
+    notes: [
+      "The v3 resolver is validity-only and does not expose a pending state.",
+      "This scenario stays at none until a Bitcoin-confirmed proof exists.",
+    ],
+    oldPubkey: OLD_PUBKEY,
+    events: [pma],
+    otsProofs: [createOtsProof(pma, { id: "1".repeat(64), kind: PMA_KIND })],
+    expectedState: { state: "none" },
+  };
+}
+
+async function buildV3PreparedEnrolledScenario(): Promise<PathAV3FixtureScenario> {
+  const rootA = await buildPmaV3({
+    oldSigner: createFakeSigner(OLD_PUBKEY, "v3-root-a"),
+    migrationPubkey: MIGRATION_PUBKEY,
+    createdAt: 1_800_000_100,
+  });
+  const rootB = await buildPmaV3({
+    oldSigner: createFakeSigner(OLD_PUBKEY, "v3-root-b"),
+    migrationPubkey: MIGRATION_PUBKEY,
+    createdAt: 1_800_000_101,
+  });
+  const pmuA = await buildPmuV3({
+    oldPubkey: OLD_PUBKEY,
+    rootAuthorityId: rootA.id!,
+    previousAuthorityId: rootA.id!,
+    currentMigrationSigner: createFakeSigner(MIGRATION_PUBKEY, "v3-pmu-a"),
+    nextMigrationPubkey: NEXT_MIGRATION_PUBKEY,
+    oldDetachedSigner: createFakeDetachedSigner(OLD_PUBKEY, "v3-pmu-a-old"),
+    nextDetachedSigner: createFakeDetachedSigner(NEXT_MIGRATION_PUBKEY, "v3-pmu-a-next"),
+    createdAt: 1_800_000_120,
+  });
+  const pmuB = await buildPmuV3({
+    oldPubkey: OLD_PUBKEY,
+    rootAuthorityId: rootB.id!,
+    previousAuthorityId: rootB.id!,
+    currentMigrationSigner: createFakeSigner(MIGRATION_PUBKEY, "v3-pmu-b"),
+    nextMigrationPubkey: NEXT_MIGRATION_PUBKEY,
+    oldDetachedSigner: createFakeDetachedSigner(OLD_PUBKEY, "v3-pmu-b-old"),
+    nextDetachedSigner: createFakeDetachedSigner(NEXT_MIGRATION_PUBKEY, "v3-pmu-b-next"),
+    createdAt: 1_800_000_121,
+  });
+
+  const expectedRootCanonicalId = [rootA.id!, rootB.id!].sort()[0]!;
+  const expectedAuthorityCanonicalId = [pmuA.id!, pmuB.id!].sort()[0]!;
+
+  return {
+    id: "v3-prepared-enrolled",
+    title: "V3 Prepared Enrolled",
+    summary: "Duplicate v3 PMAs and PMUs collapse into one active prepared authority.",
+    notes: [
+      "The root group is keyed by (O, M).",
+      "Both PMU children advance to the same next migration key and collapse semantically.",
+    ],
+    oldPubkey: OLD_PUBKEY,
+    events: [rootA, rootB, pmuA, pmuB],
+    otsProofs: [
+      createOtsProof(rootA, { id: "2".repeat(64), kind: PMA_KIND, anchorHeight: 850_000 }),
+      createOtsProof(rootB, { id: "3".repeat(64), kind: PMA_KIND, anchorHeight: 850_000 }),
+      createOtsProof(pmuA, { id: "4".repeat(64), kind: PMU_KIND, anchorHeight: 850_001 }),
+      createOtsProof(pmuB, { id: "5".repeat(64), kind: PMU_KIND, anchorHeight: 850_001 }),
+    ],
+    expectedState: {
+      state: "prepared_enrolled",
+      root: {
+        canonicalAuthorityId: expectedRootCanonicalId,
+        authorityIds: [rootA.id!, rootB.id!].sort(),
+        oldPubkey: OLD_PUBKEY,
+        migrationPubkey: MIGRATION_PUBKEY,
+        anchorHeight: 850_000,
+      },
+      activeAuthority: {
+        canonicalAuthorityId: expectedAuthorityCanonicalId,
+        authorityIds: [pmuA.id!, pmuB.id!].sort(),
+        rootAuthorityCanonicalId: expectedRootCanonicalId,
+        oldPubkey: OLD_PUBKEY,
+        migrationPubkey: NEXT_MIGRATION_PUBKEY,
+        anchorHeight: 850_001,
+      },
+    },
+  };
+}
+
+async function buildV3PreparedMigratedScenario(): Promise<PathAV3FixtureScenario> {
+  const root = await buildPmaV3({
+    oldSigner: createFakeSigner(OLD_PUBKEY, "v3-exec-root"),
+    migrationPubkey: MIGRATION_PUBKEY,
+    createdAt: 1_800_000_200,
+  });
+  const pmu = await buildPmuV3({
+    oldPubkey: OLD_PUBKEY,
+    rootAuthorityId: root.id!,
+    previousAuthorityId: root.id!,
+    currentMigrationSigner: createFakeSigner(MIGRATION_PUBKEY, "v3-exec-pmu"),
+    nextMigrationPubkey: NEXT_MIGRATION_PUBKEY,
+    oldDetachedSigner: createFakeDetachedSigner(OLD_PUBKEY, "v3-exec-old"),
+    nextDetachedSigner: createFakeDetachedSigner(NEXT_MIGRATION_PUBKEY, "v3-exec-next"),
+    createdAt: 1_800_000_220,
+  });
+  const stalePmx = await buildPmxV3({
+    rootAuthorityId: root.id!,
+    authorityId: root.id!,
+    oldPubkey: OLD_PUBKEY,
+    migrationSigner: createFakeSigner(MIGRATION_PUBKEY, "v3-stale-mig"),
+    newSigner: createFakeSigner(OTHER_NEW_PUBKEY, "v3-stale-new"),
+    createdAt: 1_800_000_230,
+  });
+  const pmx = await buildPmxV3({
+    rootAuthorityId: root.id!,
+    authorityId: pmu.id!,
+    oldPubkey: OLD_PUBKEY,
+    migrationSigner: createFakeSigner(NEXT_MIGRATION_PUBKEY, "v3-pmx-mig"),
+    newSigner: createFakeSigner(NEW_PUBKEY, "v3-pmx-new"),
+    createdAt: 1_800_000_240,
+  });
+
+  return {
+    id: "v3-prepared-migrated",
+    title: "V3 Prepared Migrated",
+    summary: "One active v3 PMX successor remains after a stale execution is ignored.",
+    notes: [
+      "The PMX that references the stale root authority must be ignored.",
+      "Only the PMX pointing to the active authority set counts.",
+    ],
+    oldPubkey: OLD_PUBKEY,
+    events: [root, pmu, stalePmx, pmx],
+    otsProofs: [
+      createOtsProof(root, { id: "6".repeat(64), kind: PMA_KIND, anchorHeight: 850_010 }),
+      createOtsProof(pmu, { id: "7".repeat(64), kind: PMU_KIND, anchorHeight: 850_011 }),
+    ],
+    expectedState: {
+      state: "prepared_migrated",
+      root: {
+        canonicalAuthorityId: root.id!,
+        authorityIds: [root.id!],
+        oldPubkey: OLD_PUBKEY,
+        migrationPubkey: MIGRATION_PUBKEY,
+        anchorHeight: 850_010,
+      },
+      activeAuthority: {
+        canonicalAuthorityId: pmu.id!,
+        authorityIds: [pmu.id!],
+        rootAuthorityCanonicalId: root.id!,
+        oldPubkey: OLD_PUBKEY,
+        migrationPubkey: NEXT_MIGRATION_PUBKEY,
+        anchorHeight: 850_011,
+      },
+      execution: {
+        canonicalExecutionId: pmx.id!,
+        executionIds: [pmx.id!],
+        newPubkey: NEW_PUBKEY,
+      },
+      newPubkey: NEW_PUBKEY,
+    },
+  };
+}
+
+async function buildV3ConflictingRootsScenario(): Promise<PathAV3FixtureScenario> {
+  const rootA = await buildPmaV3({
+    oldSigner: createFakeSigner(OLD_PUBKEY, "v3-conf-root-a"),
+    migrationPubkey: MIGRATION_PUBKEY,
+    createdAt: 1_800_000_300,
+  });
+  const rootB = await buildPmaV3({
+    oldSigner: createFakeSigner(OLD_PUBKEY, "v3-conf-root-b"),
+    migrationPubkey: OTHER_MIGRATION_PUBKEY,
+    createdAt: 1_800_000_301,
+  });
+
+  return {
+    id: "v3-conflicting-roots",
+    title: "V3 Conflicting Roots",
+    summary: "Two distinct v3 PMA root groups share the earliest anchor height.",
+    notes: [
+      "The lexicographic tie-break is only for duplicates inside one group.",
+      "Different migration keys at the same earliest anchor remain conflicting roots.",
+    ],
+    oldPubkey: OLD_PUBKEY,
+    events: [rootA, rootB],
+    otsProofs: [
+      createOtsProof(rootA, { id: "8".repeat(64), kind: PMA_KIND, anchorHeight: 850_020 }),
+      createOtsProof(rootB, { id: "9".repeat(64), kind: PMA_KIND, anchorHeight: 850_020 }),
+    ],
+    expectedState: {
+      state: "conflicting_roots",
+      anchorHeight: 850_020,
+      roots: [
+        {
+          canonicalAuthorityId: rootA.id!,
+          authorityIds: [rootA.id!],
+          oldPubkey: OLD_PUBKEY,
+          migrationPubkey: MIGRATION_PUBKEY,
+          anchorHeight: 850_020,
+        },
+        {
+          canonicalAuthorityId: rootB.id!,
+          authorityIds: [rootB.id!],
+          oldPubkey: OLD_PUBKEY,
+          migrationPubkey: OTHER_MIGRATION_PUBKEY,
+          anchorHeight: 850_020,
+        },
+      ],
+    },
+  };
+}
+
+async function buildV3ConflictingAuthorityUpdatesScenario(): Promise<PathAV3FixtureScenario> {
+  const root = await buildPmaV3({
+    oldSigner: createFakeSigner(OLD_PUBKEY, "v3-child-root"),
+    migrationPubkey: MIGRATION_PUBKEY,
+    createdAt: 1_800_000_400,
+  });
+  const childA = await buildPmuV3({
+    oldPubkey: OLD_PUBKEY,
+    rootAuthorityId: root.id!,
+    previousAuthorityId: root.id!,
+    currentMigrationSigner: createFakeSigner(MIGRATION_PUBKEY, "v3-child-a"),
+    nextMigrationPubkey: NEXT_MIGRATION_PUBKEY,
+    oldDetachedSigner: createFakeDetachedSigner(OLD_PUBKEY, "v3-child-a-old"),
+    nextDetachedSigner: createFakeDetachedSigner(NEXT_MIGRATION_PUBKEY, "v3-child-a-next"),
+    createdAt: 1_800_000_410,
+  });
+  const childB = await buildPmuV3({
+    oldPubkey: OLD_PUBKEY,
+    rootAuthorityId: root.id!,
+    previousAuthorityId: root.id!,
+    currentMigrationSigner: createFakeSigner(MIGRATION_PUBKEY, "v3-child-b"),
+    nextMigrationPubkey: OTHER_MIGRATION_PUBKEY,
+    oldDetachedSigner: createFakeDetachedSigner(OLD_PUBKEY, "v3-child-b-old"),
+    nextDetachedSigner: createFakeDetachedSigner(OTHER_MIGRATION_PUBKEY, "v3-child-b-next"),
+    createdAt: 1_800_000_411,
+  });
+
+  return {
+    id: "v3-conflicting-authority-updates",
+    title: "V3 Conflicting Authority Updates",
+    summary: "Two distinct next migration keys remain after v3 PMU grouping.",
+    notes: [
+      "Both children reference the same root group and current authority set.",
+      "Distinct next migration keys create a semantic fork.",
+    ],
+    oldPubkey: OLD_PUBKEY,
+    events: [root, childA, childB],
+    otsProofs: [
+      createOtsProof(root, { id: "a".repeat(64), kind: PMA_KIND, anchorHeight: 850_030 }),
+      createOtsProof(childA, { id: "b".repeat(64), kind: PMU_KIND, anchorHeight: 850_031 }),
+      createOtsProof(childB, { id: "c".repeat(64), kind: PMU_KIND, anchorHeight: 850_032 }),
+    ],
+    expectedState: {
+      state: "conflicting_authority_updates",
+      root: {
+        canonicalAuthorityId: root.id!,
+        authorityIds: [root.id!],
+        oldPubkey: OLD_PUBKEY,
+        migrationPubkey: MIGRATION_PUBKEY,
+        anchorHeight: 850_030,
+      },
+      activeAuthority: {
+        canonicalAuthorityId: root.id!,
+        authorityIds: [root.id!],
+        rootAuthorityCanonicalId: root.id!,
+        oldPubkey: OLD_PUBKEY,
+        migrationPubkey: MIGRATION_PUBKEY,
+        anchorHeight: 850_030,
+      },
+      conflictingAuthorities: [
+        {
+          canonicalAuthorityId: childA.id!,
+          authorityIds: [childA.id!],
+          rootAuthorityCanonicalId: root.id!,
+          oldPubkey: OLD_PUBKEY,
+          migrationPubkey: NEXT_MIGRATION_PUBKEY,
+          anchorHeight: 850_031,
+        },
+        {
+          canonicalAuthorityId: childB.id!,
+          authorityIds: [childB.id!],
+          rootAuthorityCanonicalId: root.id!,
+          oldPubkey: OLD_PUBKEY,
+          migrationPubkey: OTHER_MIGRATION_PUBKEY,
+          anchorHeight: 850_032,
+        },
+      ],
+    },
+  };
+}
+
+async function buildV3ConflictingExecutionsScenario(): Promise<PathAV3FixtureScenario> {
+  const root = await buildPmaV3({
+    oldSigner: createFakeSigner(OLD_PUBKEY, "v3-ex-conf-root"),
+    migrationPubkey: MIGRATION_PUBKEY,
+    createdAt: 1_800_000_500,
+  });
+  const pmu = await buildPmuV3({
+    oldPubkey: OLD_PUBKEY,
+    rootAuthorityId: root.id!,
+    previousAuthorityId: root.id!,
+    currentMigrationSigner: createFakeSigner(MIGRATION_PUBKEY, "v3-ex-conf-pmu"),
+    nextMigrationPubkey: NEXT_MIGRATION_PUBKEY,
+    oldDetachedSigner: createFakeDetachedSigner(OLD_PUBKEY, "v3-ex-conf-old"),
+    nextDetachedSigner: createFakeDetachedSigner(NEXT_MIGRATION_PUBKEY, "v3-ex-conf-next"),
+    createdAt: 1_800_000_510,
+  });
+  const pmxA = await buildPmxV3({
+    rootAuthorityId: root.id!,
+    authorityId: pmu.id!,
+    oldPubkey: OLD_PUBKEY,
+    migrationSigner: createFakeSigner(NEXT_MIGRATION_PUBKEY, "v3-ex-conf-a"),
+    newSigner: createFakeSigner(NEW_PUBKEY, "v3-ex-conf-new-a"),
+    createdAt: 1_800_000_520,
+  });
+  const pmxB = await buildPmxV3({
+    rootAuthorityId: root.id!,
+    authorityId: pmu.id!,
+    oldPubkey: OLD_PUBKEY,
+    migrationSigner: createFakeSigner(NEXT_MIGRATION_PUBKEY, "v3-ex-conf-b"),
+    newSigner: createFakeSigner(OTHER_NEW_PUBKEY, "v3-ex-conf-new-b"),
+    createdAt: 1_800_000_521,
+  });
+
+  return {
+    id: "v3-conflicting-executions",
+    title: "V3 Conflicting Executions",
+    summary: "Two distinct successor keys remain after v3 PMX grouping.",
+    notes: [
+      "Both PMXs reference the same active authority set.",
+      "Different successor pubkeys remain unresolved conflict.",
+    ],
+    oldPubkey: OLD_PUBKEY,
+    events: [root, pmu, pmxA, pmxB],
+    otsProofs: [
+      createOtsProof(root, { id: "d".repeat(64), kind: PMA_KIND, anchorHeight: 850_040 }),
+      createOtsProof(pmu, { id: "e".repeat(64), kind: PMU_KIND, anchorHeight: 850_041 }),
+    ],
+    expectedState: {
+      state: "conflicting_executions",
+      root: {
+        canonicalAuthorityId: root.id!,
+        authorityIds: [root.id!],
+        oldPubkey: OLD_PUBKEY,
+        migrationPubkey: MIGRATION_PUBKEY,
+        anchorHeight: 850_040,
+      },
+      activeAuthority: {
+        canonicalAuthorityId: pmu.id!,
+        authorityIds: [pmu.id!],
+        rootAuthorityCanonicalId: root.id!,
+        oldPubkey: OLD_PUBKEY,
+        migrationPubkey: NEXT_MIGRATION_PUBKEY,
+        anchorHeight: 850_041,
+      },
+      conflictingExecutions: [
+        {
+          canonicalExecutionId: pmxA.id!,
+          executionIds: [pmxA.id!],
+          newPubkey: NEW_PUBKEY,
+        },
+        {
+          canonicalExecutionId: pmxB.id!,
+          executionIds: [pmxB.id!],
+          newPubkey: OTHER_NEW_PUBKEY,
+        },
+      ],
+    },
+  };
+}
+
+function buildPathAV3FixtureScenarios(): Promise<PathAV3FixtureScenario[]> {
+  return Promise.all([
+    buildV3PendingOtsScenario(),
+    buildV3PreparedEnrolledScenario(),
+    buildV3PreparedMigratedScenario(),
+    buildV3ConflictingRootsScenario(),
+    buildV3ConflictingAuthorityUpdatesScenario(),
+    buildV3ConflictingExecutionsScenario(),
   ]);
 }
 

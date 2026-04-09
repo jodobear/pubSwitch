@@ -3,18 +3,25 @@ import { summarizePathAProofBridge } from "../apps/ots-helper/src/path-a-proof-b
 import {
   type PathAFixtureScenario,
   evaluatePathAFixtureScenario,
-  evaluatePathCFixtureScenario,
   getPathAFixtureScenario,
   getPathAFixtureScenarios,
+  getPathAV3FixtureScenario,
+  getPathAV3FixtureScenarios,
   getPathCFixtureScenario,
   getPathCFixtureScenarios,
 } from "../packages/fixtures/src/index";
+import {
+  buildPreparedBundleFromScenario,
+  buildSocialBundleFromScenario,
+  cliInspectTransition,
+} from "./protocol-cli-lib";
 
 const scenarioId = Bun.argv[2];
 const scenarios = scenarioId
   ? await resolveSingleScenario(scenarioId)
   : [
       ...(await getPathAFixtureScenarios()).map((scenario) => ({ path: "path-a" as const, scenario })),
+      ...(await getPathAV3FixtureScenarios()).map((scenario) => ({ path: "path-a-v3" as const, scenario })),
       ...(await getPathCFixtureScenarios()).map((scenario) => ({ path: "path-c" as const, scenario })),
     ];
 
@@ -24,7 +31,14 @@ for (const entry of scenarios) {
   const resolved =
     entry.path === "path-a"
       ? evaluatePathAFixtureScenario(entry.scenario)
-      : await evaluatePathCFixtureScenario(entry.scenario);
+      : entry.path === "path-a-v3"
+        ? (await cliInspectTransition({
+            preparedBundle: buildPreparedBundleFromScenario(entry.scenario),
+          })).prepared ?? { state: "none" }
+        : (await cliInspectTransition({
+            socialBundle: buildSocialBundleFromScenario(entry.scenario),
+            viewerFollowSet: new Set(entry.scenario.viewerFollowPubkeys),
+          })).social ?? { state: "none" };
   const stateMatches = isDeepStrictEqual(resolved, entry.scenario.expectedState);
   const helperSummary =
     entry.path === "path-a"
@@ -52,6 +66,11 @@ async function resolveSingleScenario(id: string) {
   const pathAScenario = await getPathAFixtureScenario(id);
   if (pathAScenario) {
     return [{ path: "path-a" as const, scenario: pathAScenario }];
+  }
+
+  const pathAV3Scenario = await getPathAV3FixtureScenario(id);
+  if (pathAV3Scenario) {
+    return [{ path: "path-a-v3" as const, scenario: pathAV3Scenario }];
   }
 
   const pathCScenario = await getPathCFixtureScenario(id);

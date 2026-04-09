@@ -1,4 +1,5 @@
 import OpenTimestampsCjs from "opentimestamps";
+import { type OtsProofSummary } from "../../../packages/protocol-a/src/index";
 import { type EventId, type NostrEvent } from "../../../packages/protocol-shared/src/index";
 import { type PathAFixtureScenario, getPathAFixtureScenario } from "../../../packages/fixtures/src/index";
 import {
@@ -87,6 +88,42 @@ export function inspectOtsProofsWithRealVerification(
   events: NostrEvent[],
 ): Array<InspectedOtsProof | InvalidOtsProof> {
   return events.map((event) => inspectOtsProofEventWithRealVerification(event));
+}
+
+export function summarizeOtsProofEventForV3(event: NostrEvent): OtsProofSummary {
+  const inspection = inspectOtsProofEventWithRealVerification(event);
+
+  if (!inspection.ok) {
+    return {
+      ok: false,
+      proofEventId: inspection.proofEventId,
+      code: inspection.code,
+      reason: inspection.reason,
+    };
+  }
+
+  if (inspection.status === "bitcoin_confirmed") {
+    return {
+      ok: true,
+      proofEventId: inspection.proofEventId,
+      targetEventId: inspection.targetEventId,
+      targetKind: inspection.targetKind,
+      status: "bitcoin_confirmed",
+      anchorHeight: inspection.anchorHeight!,
+    };
+  }
+
+  return {
+    ok: true,
+    proofEventId: inspection.proofEventId,
+    targetEventId: inspection.targetEventId,
+    targetKind: inspection.targetKind,
+    status: "pending",
+  };
+}
+
+export function summarizeOtsProofEventsForV3(events: NostrEvent[]): OtsProofSummary[] {
+  return events.map((event) => summarizeOtsProofEventForV3(event));
 }
 
 export function inspectScenarioProofsWithRealVerification(

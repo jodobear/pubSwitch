@@ -1,0 +1,13 @@
+{
+  "name": "@tack/evidence-bundles",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "dependencies": {
+    "@tack/protocol-a": "workspace:*",
+    "@tack/protocol-c": "workspace:*",
+    "@tack/protocol-shared": "workspace:*"
+  }
+}

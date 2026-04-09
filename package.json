@@ -6,15 +6,12 @@
     "packages/*"
   ],
   "scripts": {
-    "dev:demo": "bun run --cwd apps/demo-client dev",
-    "build:demo": "bun run --cwd apps/demo-client build",
-    "demo:cli": "bun scripts/demo-cli.ts",
-    "demo:story": "bun scripts/demo-cli.ts run",
-    "demo:walkthrough": "bun scripts/demo-walkthrough.ts",
-    "show:autonomous-loop": "bun scripts/show-autonomous-loop.ts",
+    "cli": "bun scripts/protocol-cli.ts",
     "typecheck": "bunx tsc --noEmit -p tsconfig.json",
     "test": "bun test",
+    "test:active": "bun test scripts/protocol-cli-lib.test.ts scripts/protocol-cli-command.test.ts apps/ots-helper/src/__tests__ packages/protocol-a/src/__tests__ packages/protocol-c/src/__tests__ packages/protocol-shared/src/__tests__ packages/evidence-bundles/src/__tests__ packages/fixtures/src/__tests__",
     "verify:real-ots-corpus": "bun scripts/verify-real-ots-corpus.ts",
+    "check:active": "bun run typecheck && bun run test:active && bun scripts/verify-scenario.ts",
     "check": "bun run typecheck && bun test"
   },
   "dependencies": {

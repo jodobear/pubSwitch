@@ -16,6 +16,8 @@ Current active packet after demo-readiness closeout.
 - keep the repo in an honest post-demo-ready state
 - record the highest-value optional follow-on work without pretending it is still blocking the PoC walkthrough
 - give the next session a clean place to choose whether to stop, polish, or deepen proof realism
+- the repo has since entered a CLI-first v3 rebuild lane; treat the older demo-ready framing here as
+  legacy context rather than the current implementation target
 
 ## Scope Delta
 
@@ -34,6 +36,10 @@ Out of scope by default:
 ## Current Optional Paths
 
 - completed:
+  - the CLI-first prepared-bundle lane now accepts imported proof artifacts and helper-derived proof
+    summaries instead of requiring placeholder proof creation
+  - the protocol CLI now has a first direct live relay publish/watch lane for prepared and social
+    bundles, so the legacy demo scenario wrapper is no longer the only non-browser relay path
   - a second real confirmed PMA root now exists for the root-conflict demo
   - real PMU `.ots` proofs now exist for the main authority-chain scenarios
   - the demo client now has a presentation-first live stage with stepwise publish controls, paced
@@ -59,4 +65,5 @@ Out of scope by default:
 
 ## Immediate Rule
 
-- treat the repo as demo-ready unless the next session explicitly chooses the remaining verification-hardening path above
+- treat the repo as being in an active CLI-first v3 rebuild; do not treat the browser demo as the
+  authoritative implementation target unless a slice explicitly says so

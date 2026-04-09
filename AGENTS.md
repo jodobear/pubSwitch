@@ -51,9 +51,9 @@ This repo does not require exhaustive audits before every slice closes.
 ## Build & Test
 
 ```bash
-bun run dev:demo
-bun run typecheck
-bun test
+bun run cli --help
+bun run check:active
+bun test apps/legacy-demo-client && bun run --cwd apps/legacy-demo-client build   # optional quarantined browser smoke
 ```
 
 ## What Not To Do

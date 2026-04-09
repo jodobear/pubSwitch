@@ -1,0 +1,17 @@
+{
+  "name": "@tack/legacy-demo-client",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "@tack/fixtures": "workspace:*",
+    "@tack/protocol-a": "workspace:*",
+    "@tack/protocol-c": "workspace:*",
+    "@tack/protocol-shared": "workspace:*",
+    "react": "latest",
+    "react-dom": "latest"
+  }
+}
