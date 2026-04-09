@@ -29,6 +29,10 @@ Read these first:
   - active execution baseline
 - `.private-docs/plans/current-options-packet.md`
   - current bounded slice
+- `.private-docs/research/cross-lane-adversarial-audit.md`
+  - balanced hybrid correctness/security audit of the live CLI/helper lane
+- `.private-docs/plans/cross-lane-remediation-wave-1.md`
+  - first implementation-ready remediation packet
 - `.private-docs/guides/PROCESS_CONTROL.md`
   - control-surface rules
 - `.private-docs/guides/FAST_POC_GATE.md`
@@ -45,6 +49,9 @@ Read these first:
 - current execution:
   - `.private-docs/plans/build-plan.md`
   - `.private-docs/plans/current-options-packet.md`
+- current audit and remediation:
+  - `.private-docs/research/cross-lane-adversarial-audit.md`
+  - `.private-docs/plans/cross-lane-remediation-wave-1.md`
 - recently completed implementation loop:
   - `.private-docs/plans/path-a-real-ots-chain-root-loop.md`
   - `.private-docs/plans/path-a-real-ots-adoption-loop.md`

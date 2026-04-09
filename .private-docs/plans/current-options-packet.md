@@ -3,13 +3,13 @@ title: Current Options Packet
 doc_type: packet
 status: active
 owner: tack
-phase: p8-cli-baseline
+phase: p9-cross-lane-audit
 canonical: true
 ---
 
 # Current Options Packet
 
-Current optional work after the CLI-first v3 cleanup and hardening pass.
+Current optional work after the CLI-first v3 cleanup, hardening pass, and adversarial audit.
 
 ## Purpose
 
@@ -31,9 +31,17 @@ Current optional work after the CLI-first v3 cleanup and hardening pass.
   - `docs/operator-runbook.md`
   - `docs/demo-script.md`
   - `testing/README.md`
+- the cross-lane audit output now lives in:
+  - `.private-docs/research/cross-lane-adversarial-audit.md`
+- the next implementation-ready packet now lives in:
+  - `.private-docs/plans/cross-lane-remediation-wave-1.md`
 
 ## Optional Next Phases
 
+- implement remediation wave 1:
+  - strict bundle/proof semantic validation
+  - explicit relay-source requirement for network actions
+  - safer secret ingestion path
 - productionize the operator CLI:
   - packaging
   - config and secrets posture

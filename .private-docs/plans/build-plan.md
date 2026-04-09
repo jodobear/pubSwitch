@@ -3,7 +3,7 @@ title: Build Plan
 doc_type: plan
 status: active
 owner: tack
-phase: p8-cli-baseline
+phase: p9-cross-lane-audit
 canonical: true
 ---
 
@@ -62,6 +62,18 @@ Date: 2026-04-09
   - structured failure paths
   - strict input and bundle validation
   - relay partial publish, total publish failure, and watch timeout behavior
+
+## Adversarial Audit
+
+- the live CLI/helper lane now has a dedicated balanced hybrid audit in:
+  - `.private-docs/research/cross-lane-adversarial-audit.md`
+- the first remediation wave is frozen in:
+  - `.private-docs/plans/cross-lane-remediation-wave-1.md`
+- the highest-priority gaps are:
+  - weak bundle/proof semantic validation at read time
+  - missing consistency checks between helper summaries and raw proof events
+  - implicit public relay fallback for publish/watch
+  - command-line secret exposure
 
 ## Current Repo Shape
 

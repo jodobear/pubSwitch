@@ -3,7 +3,7 @@ title: Handoff
 doc_type: state
 status: active
 owner: tack
-phase: p8-cli-baseline
+phase: p9-cross-lane-audit
 canonical: true
 ---
 
@@ -17,6 +17,8 @@ Current execution state for `tack`.
 - `.private-docs/README.md`
 - `.private-docs/plans/build-plan.md`
 - `.private-docs/plans/current-options-packet.md`
+- `.private-docs/research/cross-lane-adversarial-audit.md`
+- `.private-docs/plans/cross-lane-remediation-wave-1.md`
 - `.private-docs/research/proposal-and-research-review.md`
 
 ## Current Reality
@@ -86,9 +88,14 @@ Current execution state for `tack`.
 
 ## Audit Status
 
-- a fresh cross-lane audit was completed after hardening
-- the active operator surface is now clean
-- remaining cleanup is repo-shape follow-up, not public CLI redesign
+- the live CLI/helper lane now has a dedicated balanced hybrid adversarial audit
+- the audit output lives in `.private-docs/research/cross-lane-adversarial-audit.md`
+- the first implementation follow-up is frozen in `.private-docs/plans/cross-lane-remediation-wave-1.md`
+- top findings:
+  - bundle/proof semantic validation is too weak at the read boundary
+  - raw proof events and helper summaries are not cross-checked when both are present
+  - publish/watch still fall back to public relay defaults when no explicit relay source exists
+  - secrets are still taken directly on the command line
 
 ## Legacy Note
 
