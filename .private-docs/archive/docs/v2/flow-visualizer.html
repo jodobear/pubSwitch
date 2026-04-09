@@ -1,0 +1,1709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NIP-XX / NIP-XY — Protocol Flow Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&family=JetBrains+Mono:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #070b12;
+    --bg-elevated: #0d1320;
+    --bg-card: #111827;
+    --border: #1e293b;
+    --border-active: #334155;
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --text-muted: #64748b;
+    --crypto-gold: #f59e0b;
+    --crypto-gold-dim: #92700c;
+    --crypto-gold-glow: rgba(245, 158, 11, 0.15);
+    --social-cyan: #22d3ee;
+    --social-cyan-dim: #0e7490;
+    --social-cyan-glow: rgba(34, 211, 238, 0.12);
+    --danger: #f87171;
+    --danger-glow: rgba(248, 113, 113, 0.12);
+    --success: #4ade80;
+    --success-glow: rgba(74, 222, 128, 0.12);
+    --info: #818cf8;
+    --info-glow: rgba(129, 140, 248, 0.12);
+    --warning: #fbbf24;
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 17px;
+    line-height: 1.7;
+    overflow-x: hidden;
+  }
+
+  /* ── Grain overlay ── */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 9999;
+  }
+
+  /* ── Typography ── */
+  h1, h2, h3 { font-family: 'Instrument Serif', serif; font-weight: 400; }
+  code, .mono { font-family: 'JetBrains Mono', monospace; }
+
+  /* ── Layout ── */
+  .container { max-width: 1440px; margin: 0 auto; padding: 0 3rem; }
+
+  /* ── Hero ── */
+  .hero {
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    position: relative;
+    padding: 4rem 0;
+  }
+
+  .hero-grid {
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(30, 41, 59, 0.3) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(30, 41, 59, 0.3) 1px, transparent 1px);
+    background-size: 60px 60px;
+    mask-image: radial-gradient(ellipse 70% 50% at 50% 50%, black, transparent);
+  }
+
+  .hero-content { position: relative; z-index: 1; }
+
+  .hero h1 {
+    font-size: clamp(3rem, 6vw, 5.5rem);
+    line-height: 1.05;
+    letter-spacing: -0.02em;
+    margin-bottom: 1.5rem;
+  }
+
+  .hero h1 .gold { color: var(--crypto-gold); }
+  .hero h1 .cyan { color: var(--social-cyan); }
+  .hero h1 .amp {
+    font-style: italic;
+    color: var(--text-muted);
+    display: inline-block;
+    margin: 0 0.15em;
+  }
+
+  .hero-subtitle {
+    font-size: 1.35rem;
+    color: var(--text-dim);
+    max-width: 720px;
+    margin-bottom: 3rem;
+  }
+
+  .hero-badges {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 4rem;
+  }
+
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    padding: 0.6rem 1.25rem;
+    border: 1px solid var(--border);
+    border-radius: 999px;
+    font-size: 0.95rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+  }
+
+  .badge--gold { border-color: var(--crypto-gold-dim); color: var(--crypto-gold); background: var(--crypto-gold-glow); }
+  .badge--cyan { border-color: var(--social-cyan-dim); color: var(--social-cyan); background: var(--social-cyan-glow); }
+
+  .badge .dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+
+  .badge--gold .dot { background: var(--crypto-gold); }
+  .badge--cyan .dot { background: var(--social-cyan); }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(0.8); }
+  }
+
+  /* ── Navigation ── */
+  .nav {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(7, 11, 18, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+    padding: 1rem 0;
+  }
+
+  .nav-inner {
+    display: flex;
+    gap: 0.4rem;
+    overflow-x: auto;
+    scrollbar-width: none;
+  }
+
+  .nav-inner::-webkit-scrollbar { display: none; }
+
+  .nav-btn {
+    background: none;
+    border: 1px solid transparent;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    padding: 0.55rem 1.1rem;
+    border-radius: 8px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+    letter-spacing: 0.01em;
+  }
+
+  .nav-btn:hover { color: var(--text-dim); border-color: var(--border); }
+  .nav-btn.active { color: var(--text); background: var(--bg-card); border-color: var(--border-active); }
+  .nav-btn.active[data-color="gold"] { color: var(--crypto-gold); border-color: var(--crypto-gold-dim); background: var(--crypto-gold-glow); }
+  .nav-btn.active[data-color="cyan"] { color: var(--social-cyan); border-color: var(--social-cyan-dim); background: var(--social-cyan-glow); }
+  .nav-btn.active[data-color="both"] {
+    background: linear-gradient(135deg, var(--crypto-gold-glow), var(--social-cyan-glow));
+    border-color: var(--border-active);
+  }
+
+  /* ── Sections ── */
+  .section {
+    display: none;
+    padding: 4rem 0 6rem;
+    animation: fadeIn 0.4s ease;
+  }
+
+  .section.active { display: block; }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .section-header {
+    margin-bottom: 3.5rem;
+    padding-bottom: 2.5rem;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .section-header h2 {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+  }
+
+  .section-header p {
+    color: var(--text-dim);
+    max-width: 700px;
+    font-size: 1.1rem;
+  }
+
+  .section-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+    display: block;
+  }
+
+  .section-label--gold { color: var(--crypto-gold); }
+  .section-label--cyan { color: var(--social-cyan); }
+  .section-label--both { background: linear-gradient(90deg, var(--crypto-gold), var(--social-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+  /* ── Sequence diagram ── */
+  .sequence {
+    position: relative;
+    padding: 2.5rem 0;
+  }
+
+  .seq-phase {
+    margin-bottom: 3rem;
+    opacity: 0;
+    transform: translateY(16px);
+    animation: seq-appear 0.5s ease forwards;
+  }
+
+  .seq-phase:nth-child(1) { animation-delay: 0.1s; }
+  .seq-phase:nth-child(2) { animation-delay: 0.3s; }
+  .seq-phase:nth-child(3) { animation-delay: 0.5s; }
+  .seq-phase:nth-child(4) { animation-delay: 0.7s; }
+  .seq-phase:nth-child(5) { animation-delay: 0.9s; }
+
+  @keyframes seq-appear {
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .phase-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 1.25rem;
+    padding-left: 1.25rem;
+    padding-top: 0.15rem;
+    padding-bottom: 0.15rem;
+    border-left: 3px solid var(--border);
+  }
+
+  .phase-label--gold { border-color: var(--crypto-gold-dim); color: var(--crypto-gold); }
+  .phase-label--cyan { border-color: var(--social-cyan-dim); color: var(--social-cyan); }
+  .phase-label--danger { border-color: var(--danger); color: var(--danger); }
+
+  .seq-step {
+    display: grid;
+    grid-template-columns: 140px 1fr 160px;
+    gap: 1.25rem;
+    align-items: start;
+    padding: 1rem 1.5rem;
+    margin-bottom: 0.6rem;
+    border-radius: 10px;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+  }
+
+  .seq-step:hover {
+    background: var(--bg-elevated);
+    border-color: var(--border);
+  }
+
+  .seq-actor {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--text-dim);
+  }
+
+  .seq-actor--gold { color: var(--crypto-gold); }
+  .seq-actor--cyan { color: var(--social-cyan); }
+  .seq-actor--danger { color: var(--danger); }
+
+  .seq-action {
+    font-size: 1.05rem;
+    color: var(--text);
+  }
+
+  .seq-action .kind {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    padding: 0.2rem 0.6rem;
+    border-radius: 5px;
+    margin-right: 0.45rem;
+    font-weight: 500;
+  }
+
+  .kind--pma { background: rgba(245, 158, 11, 0.15); color: var(--crypto-gold); }
+  .kind--pmu { background: rgba(251, 191, 36, 0.12); color: var(--warning); }
+  .kind--pmx { background: rgba(74, 222, 128, 0.12); color: var(--success); }
+  .kind--ots { background: rgba(248, 113, 113, 0.1); color: #fb923c; }
+  .kind--stc { background: rgba(34, 211, 238, 0.12); color: var(--social-cyan); }
+  .kind--sta { background: rgba(129, 140, 248, 0.12); color: var(--info); }
+
+  .seq-detail {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-align: right;
+  }
+
+  .seq-arrow {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.25rem 1.25rem;
+    color: var(--text-muted);
+    font-size: 0.75rem;
+  }
+
+  .seq-arrow::before {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  .seq-arrow::after {
+    content: '>';
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.65rem;
+  }
+
+  /* ── State machine ── */
+  .states-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
+    gap: 1.25rem;
+    margin-top: 2.5rem;
+  }
+
+  .state-card {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 2rem;
+    background: var(--bg-card);
+    transition: all 0.3s;
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .state-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+  }
+
+  .state-card:hover {
+    border-color: var(--border-active);
+    transform: translateY(-2px);
+  }
+
+  .state-card--success::before { background: var(--success); }
+  .state-card--danger::before { background: var(--danger); }
+  .state-card--info::before { background: var(--info); }
+  .state-card--neutral::before { background: var(--text-muted); }
+  .state-card--gold::before { background: var(--crypto-gold); }
+  .state-card--cyan::before { background: var(--social-cyan); }
+  .state-card--warning::before { background: var(--warning); }
+
+  .state-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 1.05rem;
+    font-weight: 600;
+    margin-bottom: 0.65rem;
+  }
+
+  .state-name--success { color: var(--success); }
+  .state-name--danger { color: var(--danger); }
+  .state-name--info { color: var(--info); }
+  .state-name--neutral { color: var(--text-muted); }
+  .state-name--gold { color: var(--crypto-gold); }
+  .state-name--cyan { color: var(--social-cyan); }
+  .state-name--warning { color: var(--warning); }
+
+  .state-desc {
+    font-size: 1rem;
+    color: var(--text-dim);
+    margin-bottom: 1rem;
+    line-height: 1.6;
+  }
+
+  .state-action {
+    font-size: 0.95rem;
+    padding: 0.85rem 1.1rem;
+    background: var(--bg-elevated);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    line-height: 1.5;
+  }
+
+  .state-action strong {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 0.35rem;
+    color: var(--text-muted);
+  }
+
+  /* ── Flow diagram (CSS-based) ── */
+  .flow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+    margin: 2rem 0;
+  }
+
+  .flow-node {
+    padding: 1.15rem 2rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    text-align: center;
+    max-width: 440px;
+    width: 100%;
+    font-size: 1.05rem;
+    position: relative;
+    transition: all 0.2s;
+  }
+
+  .flow-node:hover {
+    border-color: var(--border-active);
+    background: var(--bg-elevated);
+  }
+
+  .flow-node--decision {
+    border-radius: 10px;
+    transform: rotate(0deg);
+    background: var(--bg-elevated);
+    border-style: dashed;
+  }
+
+  .flow-connector {
+    width: 2px;
+    height: 36px;
+    background: var(--border);
+    position: relative;
+  }
+
+  .flow-connector::after {
+    content: '';
+    position: absolute;
+    bottom: -3px;
+    left: -3px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--border);
+  }
+
+  .flow-connector--gold { background: var(--crypto-gold-dim); }
+  .flow-connector--gold::after { background: var(--crypto-gold-dim); }
+  .flow-connector--cyan { background: var(--social-cyan-dim); }
+  .flow-connector--cyan::after { background: var(--social-cyan-dim); }
+
+  .flow-branch {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    width: 100%;
+    max-width: 900px;
+  }
+
+  .flow-branch-item {
+    flex: 1;
+    min-width: 220px;
+    max-width: 340px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0;
+  }
+
+  .flow-branch-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    margin: 0.65rem 0;
+    text-align: center;
+  }
+
+  /* ── Composition Matrix ── */
+  .matrix {
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin: 2rem 0;
+  }
+
+  .matrix-row {
+    display: grid;
+    grid-template-columns: 210px 200px 1fr;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.2s;
+  }
+
+  .matrix-row:last-child { border-bottom: none; }
+  .matrix-row:hover { background: var(--bg-elevated); }
+
+  .matrix-row--header {
+    background: var(--bg-card);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+
+  .matrix-cell {
+    padding: 1.1rem 1.35rem;
+    font-size: 1rem;
+    border-right: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+  }
+
+  .matrix-cell:last-child { border-right: none; }
+
+  .matrix-cell .indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .indicator--success { background: var(--success); box-shadow: 0 0 6px var(--success-glow); }
+  .indicator--danger { background: var(--danger); box-shadow: 0 0 6px var(--danger-glow); }
+  .indicator--info { background: var(--info); box-shadow: 0 0 6px var(--info-glow); }
+  .indicator--gold { background: var(--crypto-gold); box-shadow: 0 0 6px var(--crypto-gold-glow); }
+  .indicator--cyan { background: var(--social-cyan); box-shadow: 0 0 6px var(--social-cyan-glow); }
+  .indicator--warning { background: var(--warning); }
+  .indicator--muted { background: var(--text-muted); }
+
+  /* ── Scenario cards ── */
+  .scenario {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    margin-bottom: 2.5rem;
+  }
+
+  .scenario-header {
+    padding: 1.5rem 2rem;
+    background: var(--bg-card);
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+
+  .scenario-header:hover { background: var(--bg-elevated); }
+
+  .scenario-title {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.6rem;
+  }
+
+  .scenario-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    padding: 0.3rem 0.8rem;
+    border-radius: 999px;
+    border: 1px solid;
+  }
+
+  .scenario-tag--gold { border-color: var(--crypto-gold-dim); color: var(--crypto-gold); background: var(--crypto-gold-glow); }
+  .scenario-tag--cyan { border-color: var(--social-cyan-dim); color: var(--social-cyan); background: var(--social-cyan-glow); }
+  .scenario-tag--both {
+    border-color: var(--border-active);
+    background: linear-gradient(135deg, var(--crypto-gold-glow), var(--social-cyan-glow));
+    color: var(--text);
+  }
+
+  .scenario-body {
+    padding: 2rem;
+    display: none;
+  }
+
+  .scenario.open .scenario-body { display: block; animation: fadeIn 0.3s ease; }
+  .scenario.open .scenario-chevron { transform: rotate(180deg); }
+
+  .scenario-chevron {
+    color: var(--text-muted);
+    transition: transform 0.2s;
+    font-size: 0.8rem;
+  }
+
+  .scenario-timeline {
+    position: relative;
+    padding-left: 2.5rem;
+  }
+
+  .scenario-timeline::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 10px;
+    bottom: 10px;
+    width: 2px;
+    background: var(--border);
+  }
+
+  .tl-event {
+    position: relative;
+    padding: 0.75rem 0 1.5rem 0;
+  }
+
+  .tl-event::before {
+    content: '';
+    position: absolute;
+    left: -2.5rem;
+    top: 1rem;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: var(--bg-card);
+    border: 2px solid var(--border);
+    z-index: 1;
+  }
+
+  .tl-event--gold::before { border-color: var(--crypto-gold); background: var(--crypto-gold-glow); }
+  .tl-event--cyan::before { border-color: var(--social-cyan); background: var(--social-cyan-glow); }
+  .tl-event--danger::before { border-color: var(--danger); background: var(--danger-glow); }
+  .tl-event--success::before { border-color: var(--success); background: var(--success-glow); }
+  .tl-event--muted::before { border-color: var(--text-muted); }
+
+  .tl-label {
+    font-size: 1.05rem;
+    color: var(--text);
+    margin-bottom: 0.25rem;
+  }
+
+  .tl-detail {
+    font-size: 0.95rem;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  /* ── Event kind ref ── */
+  .kind-ref {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1rem;
+    margin: 2.5rem 0;
+  }
+
+  .kind-card {
+    padding: 1.75rem;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg-card);
+    transition: all 0.25s;
+  }
+
+  .kind-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-active);
+  }
+
+  .kind-number {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 2rem;
+    font-weight: 300;
+    margin-bottom: 0.3rem;
+  }
+
+  .kind-name {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    margin-bottom: 0.6rem;
+  }
+
+  .kind-desc {
+    font-size: 0.95rem;
+    color: var(--text-dim);
+    line-height: 1.55;
+  }
+
+  .kind-card--pma { border-left: 4px solid var(--crypto-gold); }
+  .kind-card--pma .kind-number { color: var(--crypto-gold); }
+  .kind-card--pmu { border-left: 4px solid var(--warning); }
+  .kind-card--pmu .kind-number { color: var(--warning); }
+  .kind-card--pmx { border-left: 4px solid var(--success); }
+  .kind-card--pmx .kind-number { color: var(--success); }
+  .kind-card--stc { border-left: 4px solid var(--social-cyan); }
+  .kind-card--stc .kind-number { color: var(--social-cyan); }
+  .kind-card--sta { border-left: 4px solid var(--info); }
+  .kind-card--sta .kind-number { color: var(--info); }
+
+  /* ── Resolution flow (interactive) ── */
+  .resolution-flow {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 2.5rem;
+    margin: 2.5rem 0;
+  }
+
+  .res-step {
+    margin-bottom: 2rem;
+    padding-left: 2rem;
+    border-left: 3px solid var(--border);
+    transition: border-color 0.3s;
+  }
+
+  .res-step.active { border-left-color: var(--crypto-gold); }
+  .res-step.complete { border-left-color: var(--success); }
+  .res-step.conflict { border-left-color: var(--danger); }
+
+  .res-step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 0.3rem;
+  }
+
+  .res-step-title {
+    font-size: 1.2rem;
+    font-weight: 500;
+    margin-bottom: 0.4rem;
+  }
+
+  .res-step-desc {
+    font-size: 1rem;
+    color: var(--text-dim);
+    line-height: 1.55;
+  }
+
+  /* ── Principle callout ── */
+  .principle {
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 2.5rem 3rem;
+    margin: 3rem 0;
+    text-align: center;
+    background: var(--bg-card);
+    position: relative;
+  }
+
+  .principle::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 12px;
+    background: linear-gradient(135deg, var(--crypto-gold-dim), transparent 40%, transparent 60%, var(--social-cyan-dim));
+    z-index: -1;
+    mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+    mask-composite: exclude;
+    padding: 1px;
+  }
+
+  .principle blockquote {
+    font-family: 'Instrument Serif', serif;
+    font-size: 1.85rem;
+    font-style: italic;
+    color: var(--text);
+    line-height: 1.4;
+  }
+
+  .principle cite {
+    display: block;
+    margin-top: 1rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    font-style: normal;
+    text-transform: uppercase;
+  }
+
+  /* ── Responsive ── */
+  @media (max-width: 768px) {
+    .hero h1 { font-size: 2.5rem; }
+    .seq-step { grid-template-columns: 1fr; gap: 0.25rem; }
+    .seq-detail { text-align: left; }
+    .matrix-row { grid-template-columns: 1fr; }
+    .matrix-cell { border-right: none; border-bottom: 1px solid var(--border); padding: 0.6rem 1rem; }
+    .matrix-row--header { display: none; }
+  }
+
+  /* ── Scroll animations ── */
+  .reveal {
+    opacity: 0;
+    transform: translateY(20px);
+    transition: opacity 0.6s ease, transform 0.6s ease;
+  }
+
+  .reveal.visible {
+    opacity: 1;
+    transform: translateY(0);
+  }
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════ HERO ═══════════════════════════════════ -->
+<section class="hero">
+  <div class="hero-grid"></div>
+  <div class="container hero-content">
+    <div class="hero-badges">
+      <span class="badge badge--gold"><span class="dot"></span> NIP-XX</span>
+      <span class="badge badge--cyan"><span class="dot"></span> NIP-XY</span>
+    </div>
+    <h1>
+      <span class="gold">Prepared Migration</span><br>
+      <span class="amp">&amp;</span>
+      <span class="cyan">Social Transition</span>
+    </h1>
+    <p class="hero-subtitle">
+      Two independent protocols for Nostr identity continuity.
+      One cryptographic, one social. Validated separately, presented together.
+    </p>
+    <p style="color: var(--text-muted); font-family: 'JetBrains Mono', monospace; font-size: 0.9rem;">
+      scroll to explore flows &darr;
+    </p>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════ NAV ═══════════════════════════════════ -->
+<nav class="nav">
+  <div class="container nav-inner">
+    <button class="nav-btn active" data-section="overview" data-color="both">Overview</button>
+    <button class="nav-btn" data-section="happy-path" data-color="gold">Happy Path</button>
+    <button class="nav-btn" data-section="authority-update" data-color="gold">Authority Update</button>
+    <button class="nav-btn" data-section="states-xx" data-color="gold">NIP-XX States</button>
+    <button class="nav-btn" data-section="social-flow" data-color="cyan">Social Flow</button>
+    <button class="nav-btn" data-section="states-xy" data-color="cyan">NIP-XY States</button>
+    <button class="nav-btn" data-section="combined" data-color="both">Combined View</button>
+    <button class="nav-btn" data-section="scenarios" data-color="both">Scenarios</button>
+  </div>
+</nav>
+
+<div class="container">
+
+<!-- ════════════════════════════════ OVERVIEW ════════════════════════════════ -->
+<section class="section active" id="overview">
+  <div class="section-header">
+    <span class="section-label section-label--both">Both protocols</span>
+    <h2>Event Kind Reference</h2>
+    <p>Five event kinds across two independent protocols. Each validated on its own terms.</p>
+  </div>
+
+  <div class="kind-ref">
+    <div class="kind-card kind-card--pma">
+      <div class="kind-number">1776</div>
+      <div class="kind-name">PMA</div>
+      <div class="kind-desc">Prepared Migration Authority. Root enrollment event signed by the old key. Anchored via NIP-03 OpenTimestamps.</div>
+    </div>
+    <div class="kind-card kind-card--pmu">
+      <div class="kind-number">1779</div>
+      <div class="kind-name">PMU</div>
+      <div class="kind-desc">Authority Update. Rotates the migration key. Requires detached signatures from the old key and the new migration key.</div>
+    </div>
+    <div class="kind-card kind-card--pmx">
+      <div class="kind-number">1777</div>
+      <div class="kind-name">PMX</div>
+      <div class="kind-desc">Migration Execution. Performs the migration. Signed by the active migration key with detached consent from the successor.</div>
+    </div>
+    <div class="kind-card kind-card--stc">
+      <div class="kind-number">1778</div>
+      <div class="kind-name">STC</div>
+      <div class="kind-desc">Social Transition Claim. Immutable statement by old or new key that a transition exists. Not cryptographic proof.</div>
+    </div>
+    <div class="kind-card kind-card--sta">
+      <div class="kind-number">31778</div>
+      <div class="kind-name">STA</div>
+      <div class="kind-desc">Social Transition Attestation. Addressable event expressing an attestor's current stance. Latest version wins.</div>
+    </div>
+  </div>
+
+  <div class="principle">
+    <blockquote>Validate separately. Present together if useful.</blockquote>
+    <cite>Core design principle</cite>
+  </div>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.75rem; margin-top: 2.5rem;">
+    <div style="border: 1px solid var(--crypto-gold-dim); border-radius: 14px; padding: 2rem; background: var(--crypto-gold-glow);">
+      <span class="section-label section-label--gold">NIP-XX</span>
+      <h3 style="font-size: 1.65rem; margin-bottom: 0.6rem;">Prepared Migration</h3>
+      <p style="font-size: 1.05rem; color: var(--text-dim); margin-bottom: 1.25rem; line-height: 1.6;">Cryptographic. Deterministic. Every client reaches the same conclusion given the same events.</p>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--text-muted);">
+        Requires: NIP-01, NIP-03<br>
+        Events: 1776, 1779, 1777
+      </div>
+    </div>
+    <div style="border: 1px solid var(--social-cyan-dim); border-radius: 14px; padding: 2rem; background: var(--social-cyan-glow);">
+      <span class="section-label section-label--cyan">NIP-XY</span>
+      <h3 style="font-size: 1.65rem; margin-bottom: 0.6rem;">Social Transition</h3>
+      <p style="font-size: 1.05rem; color: var(--text-dim); margin-bottom: 1.25rem; line-height: 1.6;">Social. Viewer-relative. The same events produce different results depending on who is looking.</p>
+      <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--text-muted);">
+        Requires: NIP-01<br>
+        Events: 1778, 31778
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════ HAPPY PATH ════════════════════════════════ -->
+<section class="section" id="happy-path">
+  <div class="section-header">
+    <span class="section-label section-label--gold">NIP-XX &middot; Prepared Migration</span>
+    <h2>Happy Path</h2>
+    <p>The simplest scenario: user enrolls during calm times, then executes migration when needed later.</p>
+  </div>
+
+  <div class="sequence">
+    <div class="seq-phase">
+      <div class="phase-label phase-label--gold">Phase 1 &mdash; Enrollment (calm times)</div>
+      <div class="seq-step">
+        <span class="seq-actor seq-actor--gold">Old Key (O)</span>
+        <span class="seq-action">
+          <span class="kind kind--pma">kind:1776</span>
+          Publishes PMA naming migration key M
+        </span>
+        <span class="seq-detail">signed by O</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: #fb923c;">OTS / Bitcoin</span>
+        <span class="seq-action">
+          <span class="kind kind--ots">kind:1040</span>
+          PMA receives OpenTimestamps proof at block height H
+        </span>
+        <span class="seq-detail">anchor_height = H</span>
+      </div>
+    </div>
+
+    <div class="seq-phase">
+      <div class="phase-label phase-label--danger">Crisis &mdash; Key lost or compromised</div>
+      <div class="seq-step">
+        <span class="seq-actor seq-actor--danger">O</span>
+        <span class="seq-action" style="color: var(--text-muted); font-style: italic;">
+          Old key is no longer safe &mdash; but M is still held securely
+        </span>
+        <span class="seq-detail"></span>
+      </div>
+    </div>
+
+    <div class="seq-phase">
+      <div class="phase-label phase-label--gold">Phase 2 &mdash; Execution</div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: var(--success);">N (successor)</span>
+        <span class="seq-action">
+          Provides detached consent signature (ns) over the PMX preimage
+        </span>
+        <span class="seq-detail">proves N is live</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor seq-actor--gold">M (migration)</span>
+        <span class="seq-action">
+          <span class="kind kind--pmx">kind:1777</span>
+          Publishes PMX: o=O, n=N, e=PMA_id, ns=consent
+        </span>
+        <span class="seq-detail">signed by M</span>
+      </div>
+    </div>
+
+    <div class="seq-phase">
+      <div class="phase-label">Phase 3 &mdash; Client Resolution</div>
+      <div class="seq-step">
+        <span class="seq-actor">Client</span>
+        <span class="seq-action">
+          Queries kind:1776, kind:1040, kind:1777 for pubkey O
+        </span>
+        <span class="seq-detail">from relays</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor">Client</span>
+        <span class="seq-action">
+          Validates PMA &rarr; checks OTS proof &rarr; validates PMX
+        </span>
+        <span class="seq-detail">deterministic</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: var(--success);">Result</span>
+        <span class="seq-action" style="color: var(--success); font-weight: 500;">
+          State: <code>prepared_migrated</code> &mdash; successor is N
+        </span>
+        <span class="seq-detail" style="color: var(--success);">&#10003;</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════ AUTHORITY UPDATE ════════════════════════════ -->
+<section class="section" id="authority-update">
+  <div class="section-header">
+    <span class="section-label section-label--gold">NIP-XX &middot; Prepared Migration</span>
+    <h2>Authority Update Chain</h2>
+    <p>User rotates the migration key before needing to execute. Requires three-party consent: old key, current migration key, and the next migration key.</p>
+  </div>
+
+  <div class="sequence">
+    <div class="seq-phase">
+      <div class="phase-label phase-label--gold">Initial enrollment</div>
+      <div class="seq-step">
+        <span class="seq-actor seq-actor--gold">Old Key (O)</span>
+        <span class="seq-action">
+          <span class="kind kind--pma">kind:1776</span>
+          PMA: m = M<sub>1</sub>
+        </span>
+        <span class="seq-detail">+ OTS at block H<sub>1</sub></span>
+      </div>
+    </div>
+
+    <div class="seq-phase">
+      <div class="phase-label phase-label--gold">Authority Update (M<sub>1</sub> &rarr; M<sub>2</sub>)</div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: var(--warning);">M<sub>1</sub> (current)</span>
+        <span class="seq-action">
+          Builds PMU event, collects detached signatures
+        </span>
+        <span class="seq-detail">coordinator</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor seq-actor--gold">O</span>
+        <span class="seq-action">
+          Signs <code>os</code>: detached signature over canonical preimage
+        </span>
+        <span class="seq-detail">old key consent</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: var(--info);">M<sub>2</sub> (next)</span>
+        <span class="seq-action">
+          Signs <code>ns</code>: detached signature over same canonical preimage
+        </span>
+        <span class="seq-detail">new key consent</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: var(--warning);">M<sub>1</sub></span>
+        <span class="seq-action">
+          <span class="kind kind--pmu">kind:1779</span>
+          Publishes PMU: e=PMA_id, u=M<sub>2</sub>, os, ns
+        </span>
+        <span class="seq-detail">+ OTS at block H<sub>2</sub></span>
+      </div>
+    </div>
+
+    <div class="seq-phase">
+      <div class="phase-label phase-label--gold">Later execution uses M<sub>2</sub></div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: var(--info);">M<sub>2</sub></span>
+        <span class="seq-action">
+          <span class="kind kind--pmx">kind:1777</span>
+          PMX now references the PMU, not the original PMA
+        </span>
+        <span class="seq-detail">M<sub>1</sub> cannot execute</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="resolution-flow">
+    <h3 style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; letter-spacing: 0.05em; color: var(--text-muted); margin-bottom: 2rem;">AUTHORITY CHAIN RESOLUTION</h3>
+
+    <div class="res-step complete">
+      <div class="res-step-num">Step 1</div>
+      <div class="res-step-title">Find valid PMA roots</div>
+      <div class="res-step-desc">Collect all valid kind:1776 events authored by O. Compute anchor_height for each.</div>
+    </div>
+
+    <div class="res-step complete">
+      <div class="res-step-num">Step 2</div>
+      <div class="res-step-title">Choose canonical root</div>
+      <div class="res-step-desc">Select the PMA with minimum anchor_height. If tied, state is <code>conflicting_roots</code>.</div>
+    </div>
+
+    <div class="res-step active">
+      <div class="res-step-num">Step 3</div>
+      <div class="res-step-title">Walk PMU chain</div>
+      <div class="res-step-desc">Starting at the canonical root, follow PMU events linearly. Any fork = <code>conflicting_authority_updates</code>.</div>
+    </div>
+
+    <div class="res-step">
+      <div class="res-step-num">Step 4</div>
+      <div class="res-step-title">Resolve active migration key</div>
+      <div class="res-step-desc">The last event in the chain (PMA or PMU) determines the active migration key.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ NIP-XX STATES ═══════════════════════════ -->
+<section class="section" id="states-xx">
+  <div class="section-header">
+    <span class="section-label section-label--gold">NIP-XX &middot; Prepared Migration</span>
+    <h2>Terminal States</h2>
+    <p>Six possible outcomes. Three are clean, three are conflicts. Clients MUST NOT auto-resolve conflicts.</p>
+  </div>
+
+  <div class="states-grid">
+    <div class="state-card state-card--neutral">
+      <div class="state-name state-name--neutral">none</div>
+      <div class="state-desc">No valid PMA exists for this pubkey. No prepared migration has been enrolled.</div>
+      <div class="state-action">
+        <strong>Client behavior</strong>
+        Nothing to show. Profile is normal.
+      </div>
+    </div>
+
+    <div class="state-card state-card--gold">
+      <div class="state-name state-name--gold">prepared_enrolled</div>
+      <div class="state-desc">A valid authority chain exists but no PMX has been published. The migration key is standing by.</div>
+      <div class="state-action">
+        <strong>Client behavior</strong>
+        Show enrollment badge. "This identity has a prepared migration backup."
+      </div>
+    </div>
+
+    <div class="state-card state-card--success">
+      <div class="state-name state-name--success">prepared_migrated</div>
+      <div class="state-desc">A valid PMX names exactly one successor key N. The cryptographic migration is complete.</div>
+      <div class="state-action">
+        <strong>Client behavior</strong>
+        Show migration result. Offer: follow N, follow both, mute old key, inspect evidence.
+      </div>
+    </div>
+
+    <div class="state-card state-card--danger">
+      <div class="state-name state-name--danger">conflicting_roots</div>
+      <div class="state-desc">Two or more valid PMAs share the same minimum anchor_height. Cannot determine canonical root.</div>
+      <div class="state-action">
+        <strong>Client behavior</strong>
+        Show conflict warning. Do NOT pick a winner. Do NOT use created_at, event id, or relay arrival time.
+      </div>
+    </div>
+
+    <div class="state-card state-card--danger">
+      <div class="state-name state-name--danger">conflicting_authority_updates</div>
+      <div class="state-desc">The PMU chain forks: multiple PMUs reference the same parent authority event.</div>
+      <div class="state-action">
+        <strong>Client behavior</strong>
+        Show conflict warning. Authority chain is ambiguous.
+      </div>
+    </div>
+
+    <div class="state-card state-card--danger">
+      <div class="state-name state-name--danger">conflicting_executions</div>
+      <div class="state-desc">Valid PMX events reference the active authority but name different successor keys.</div>
+      <div class="state-action">
+        <strong>Client behavior</strong>
+        Show conflict warning. Multiple successor claims exist.
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ SOCIAL FLOW ═══════════════════════════ -->
+<section class="section" id="social-flow">
+  <div class="section-header">
+    <span class="section-label section-label--cyan">NIP-XY &middot; Social Transition</span>
+    <h2>Claim &amp; Attestation Flow</h2>
+    <p>Social signaling for identity transition. Claims are immutable. Attestations are mutable (latest stance wins).</p>
+  </div>
+
+  <div class="sequence">
+    <div class="seq-phase">
+      <div class="phase-label phase-label--cyan">Phase 1 &mdash; Claims</div>
+      <div class="seq-step">
+        <span class="seq-actor seq-actor--cyan">New Key (N)</span>
+        <span class="seq-action">
+          <span class="kind kind--stc">kind:1778</span>
+          STC with r="new": "I'm O's successor"
+        </span>
+        <span class="seq-detail">immutable</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor seq-actor--gold">Old Key (O)</span>
+        <span class="seq-action">
+          <span class="kind kind--stc">kind:1778</span>
+          STC with r="old": "I moved to N"
+        </span>
+        <span class="seq-detail">immutable</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: var(--text-muted);">Both</span>
+        <span class="seq-action" style="color: var(--text-dim);">
+          d tag = SHA-256("nostr-social-transition:v1" || 0x00 || O || 0x00 || N)
+        </span>
+        <span class="seq-detail">deterministic T</span>
+      </div>
+    </div>
+
+    <div class="seq-phase">
+      <div class="phase-label phase-label--cyan">Phase 2 &mdash; Attestations</div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: var(--info);">Friend Alice</span>
+        <span class="seq-action">
+          <span class="kind kind--sta">kind:31778</span>
+          STA: s="support", m="in_person"
+        </span>
+        <span class="seq-detail">addressable</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: var(--info);">Friend Bob</span>
+        <span class="seq-action">
+          <span class="kind kind--sta">kind:31778</span>
+          STA: s="support", m="voice"
+        </span>
+        <span class="seq-detail">addressable</span>
+      </div>
+    </div>
+
+    <div class="seq-phase">
+      <div class="phase-label">Phase 3 &mdash; Viewer Resolution (viewer-relative!)</div>
+      <div class="seq-step">
+        <span class="seq-actor">Client</span>
+        <span class="seq-action">
+          Query kind:1778 + kind:31778 for transition T(O,N)
+        </span>
+        <span class="seq-detail"></span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor">Client</span>
+        <span class="seq-action" style="color: var(--social-cyan);">
+          Filter attestations by <em>viewer's follow set</em>
+        </span>
+        <span class="seq-detail">viewer-relative</span>
+      </div>
+      <div class="seq-step">
+        <span class="seq-actor" style="color: var(--success);">Result</span>
+        <span class="seq-action" style="color: var(--success); font-weight: 500;">
+          State: <code>socially_supported</code> &mdash; 2 followed contacts support
+        </span>
+        <span class="seq-detail" style="color: var(--success);">&#10003;</span>
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 2.5rem; padding: 2rem; border: 1px solid var(--social-cyan-dim); border-radius: 14px; background: var(--social-cyan-glow);">
+    <h3 style="font-size: 1.3rem; margin-bottom: 1rem; color: var(--social-cyan);">Attestation Lifecycle: Mutable Stance</h3>
+    <p style="font-size: 1.05rem; color: var(--text-dim); margin-bottom: 1.5rem; line-height: 1.6;">
+      Because kind:31778 is addressable, only the latest valid STA per attestor per transition counts.
+      Previous stances are superseded. Public stance history may be lost &mdash; this is an intentional tradeoff.
+    </p>
+    <div style="display: flex; gap: 1rem; flex-wrap: wrap;">
+      <div style="flex: 1; min-width: 170px; padding: 1.15rem; background: var(--bg-card); border-radius: 10px; border: 1px solid var(--border); text-align: center;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--text-muted);">t<sub>1</sub></div>
+        <div style="font-size: 1.1rem; color: var(--success); margin-top: 0.35rem;">support</div>
+      </div>
+      <div style="display: flex; align-items: center; color: var(--text-muted); font-size: 1.5rem;">&rarr;</div>
+      <div style="flex: 1; min-width: 170px; padding: 1.15rem; background: var(--bg-card); border-radius: 10px; border: 1px solid var(--border); text-align: center;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--text-muted);">t<sub>2</sub></div>
+        <div style="font-size: 1.1rem; color: var(--danger); margin-top: 0.35rem;">oppose</div>
+      </div>
+      <div style="display: flex; align-items: center; color: var(--text-muted); font-size: 1.5rem;">&rarr;</div>
+      <div style="flex: 1; min-width: 170px; padding: 1.15rem; background: var(--bg-card); border-radius: 10px; border: 1px solid var(--border-active); text-align: center;">
+        <div style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--text-muted);">t<sub>3</sub> (latest)</div>
+        <div style="font-size: 1.1rem; color: var(--info); margin-top: 0.35rem;">uncertain</div>
+        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.2rem;">&#8592; only this counts</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ NIP-XY STATES ═══════════════════════════ -->
+<section class="section" id="states-xy">
+  <div class="section-header">
+    <span class="section-label section-label--cyan">NIP-XY &middot; Social Transition</span>
+    <h2>Social States (Viewer-Relative)</h2>
+    <p>Results depend on who is looking. The same events, filtered through different follow sets, produce different states.</p>
+  </div>
+
+  <div class="flow">
+    <div class="flow-node" style="border-color: var(--social-cyan-dim); background: var(--social-cyan-glow);">
+      <span style="font-family: 'JetBrains Mono', monospace; font-size: 0.95rem; color: var(--social-cyan);">Query claims for transition T(O,N)</span>
+    </div>
+    <div class="flow-connector flow-connector--cyan"></div>
+    <div class="flow-node flow-node--decision">
+      Any valid STC exists?
+    </div>
+    <div class="flow-connector"></div>
+    <div class="flow-branch">
+      <div class="flow-branch-item">
+        <div class="flow-branch-label" style="color: var(--danger);">No</div>
+        <div class="flow-connector"></div>
+        <div class="flow-node" style="border-color: var(--text-muted);">
+          <div class="state-name state-name--neutral" style="font-size: 0.8rem;">none</div>
+          <div style="font-size: 0.78rem; color: var(--text-dim);">No transition claim exists</div>
+        </div>
+      </div>
+      <div class="flow-branch-item">
+        <div class="flow-branch-label" style="color: var(--success);">Yes &mdash; filter STAs by follow set</div>
+        <div class="flow-connector flow-connector--cyan"></div>
+        <div class="flow-node flow-node--decision" style="border-color: var(--social-cyan-dim);">
+          Followed attestors' stances?
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="states-grid" style="margin-top: 1rem;">
+    <div class="state-card state-card--neutral">
+      <div class="state-name state-name--neutral">none</div>
+      <div class="state-desc">No valid STC for this O&rarr;N pair. No social transition claim.</div>
+      <div class="state-action"><strong>Client</strong>Nothing to show.</div>
+    </div>
+
+    <div class="state-card state-card--warning">
+      <div class="state-name state-name--warning">claimed</div>
+      <div class="state-desc">At least one valid STC exists, but no followed attestor has weighed in.</div>
+      <div class="state-action"><strong>Client</strong>De-emphasize unless viewer opened the profile or follows the claimant.</div>
+    </div>
+
+    <div class="state-card state-card--cyan">
+      <div class="state-name state-name--cyan">socially_supported</div>
+      <div class="state-desc">At least one followed attestor publishes a live "support" STA. No followed opposition.</div>
+      <div class="state-action"><strong>Client</strong>Surface claim. "N claims to be O's successor. People you trust support this."</div>
+    </div>
+
+    <div class="state-card state-card--danger">
+      <div class="state-name state-name--danger">socially_opposed</div>
+      <div class="state-desc">At least one followed attestor opposes. No followed support.</div>
+      <div class="state-action"><strong>Client</strong>Show warning. "People you trust oppose this transition."</div>
+    </div>
+
+    <div class="state-card state-card--danger">
+      <div class="state-name state-name--danger">socially_split</div>
+      <div class="state-desc">Followed attestors include both "support" and "oppose" stances.</div>
+      <div class="state-action"><strong>Client</strong>Show both sides. Let the user decide. Never auto-resolve.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ COMBINED VIEW ═══════════════════════════ -->
+<section class="section" id="combined">
+  <div class="section-header">
+    <span class="section-label section-label--both">Both protocols</span>
+    <h2>Combined Client View</h2>
+    <p>How a client composes results from both protocols into a single presentation layer.</p>
+  </div>
+
+  <div class="principle">
+    <blockquote>Validation is separate. Presentation may be combined.</blockquote>
+    <cite>Design note</cite>
+  </div>
+
+  <div class="matrix">
+    <div class="matrix-row matrix-row--header">
+      <div class="matrix-cell">NIP-XX result</div>
+      <div class="matrix-cell">NIP-XY result</div>
+      <div class="matrix-cell">Client presentation</div>
+    </div>
+
+    <div class="matrix-row">
+      <div class="matrix-cell"><span class="indicator indicator--success"></span> <code style="font-size: 0.9rem;">prepared_migrated</code></div>
+      <div class="matrix-cell"><span class="indicator indicator--cyan"></span> socially_supported</div>
+      <div class="matrix-cell" style="color: var(--success); font-weight: 500;">Strongest signal. Crypto + social agreement. Suggest: follow N.</div>
+    </div>
+
+    <div class="matrix-row">
+      <div class="matrix-cell"><span class="indicator indicator--success"></span> <code style="font-size: 0.9rem;">prepared_migrated</code></div>
+      <div class="matrix-cell"><span class="indicator indicator--warning"></span> claimed only</div>
+      <div class="matrix-cell">Crypto valid, social pending. Suggest: follow N, note social gap.</div>
+    </div>
+
+    <div class="matrix-row">
+      <div class="matrix-cell"><span class="indicator indicator--success"></span> <code style="font-size: 0.9rem;">prepared_migrated</code></div>
+      <div class="matrix-cell"><span class="indicator indicator--danger"></span> socially_opposed</div>
+      <div class="matrix-cell" style="color: var(--warning);">Tension: crypto valid but social opposition. Show both, let user decide.</div>
+    </div>
+
+    <div class="matrix-row">
+      <div class="matrix-cell"><span class="indicator indicator--gold"></span> <code style="font-size: 0.9rem;">prepared_enrolled</code></div>
+      <div class="matrix-cell"><span class="indicator indicator--cyan"></span> socially_supported</div>
+      <div class="matrix-cell">Enrolled + socially backed. Migration is ready but hasn't fired.</div>
+    </div>
+
+    <div class="matrix-row">
+      <div class="matrix-cell"><span class="indicator indicator--muted"></span> <code style="font-size: 0.9rem;">none</code></div>
+      <div class="matrix-cell"><span class="indicator indicator--cyan"></span> socially_supported</div>
+      <div class="matrix-cell" style="color: var(--social-cyan);">Social-only migration. No cryptographic proof. Evidence from trusted contacts.</div>
+    </div>
+
+    <div class="matrix-row">
+      <div class="matrix-cell"><span class="indicator indicator--muted"></span> <code style="font-size: 0.9rem;">none</code></div>
+      <div class="matrix-cell"><span class="indicator indicator--warning"></span> claimed only</div>
+      <div class="matrix-cell" style="color: var(--text-muted);">Weakest signal. Claim exists but no crypto, no social backing.</div>
+    </div>
+
+    <div class="matrix-row">
+      <div class="matrix-cell"><span class="indicator indicator--danger"></span> <code style="font-size: 0.9rem;">conflict</code></div>
+      <div class="matrix-cell"><span class="indicator indicator--danger"></span> socially_split</div>
+      <div class="matrix-cell" style="color: var(--danger);">Maximum ambiguity. Show all evidence, no auto-action, user must decide.</div>
+    </div>
+
+    <div class="matrix-row">
+      <div class="matrix-cell"><span class="indicator indicator--muted"></span> <code style="font-size: 0.9rem;">none</code></div>
+      <div class="matrix-cell"><span class="indicator indicator--muted"></span> none</div>
+      <div class="matrix-cell" style="color: var(--text-muted);">No migration information. Normal profile.</div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════ SCENARIOS ═══════════════════════════ -->
+<section class="section" id="scenarios">
+  <div class="section-header">
+    <span class="section-label section-label--both">Both protocols</span>
+    <h2>Scenarios</h2>
+    <p>Real-world situations showing how both protocols interact under different conditions.</p>
+  </div>
+
+  <!-- Scenario 1 -->
+  <div class="scenario open">
+    <div class="scenario-header" onclick="this.parentElement.classList.toggle('open')">
+      <div>
+        <span class="scenario-tag scenario-tag--cyan" style="margin-right: 0.75rem;">social-only</span>
+        <span class="scenario-title">Unprepared User &mdash; Lost Key</span>
+      </div>
+      <span class="scenario-chevron">&#9662;</span>
+    </div>
+    <div class="scenario-body">
+      <p style="font-size: 1.05rem; color: var(--text-dim); margin-bottom: 1.75rem; line-height: 1.6;">
+        User lost their old key and never enrolled in Prepared Migration. Recovery relies entirely on social evidence.
+      </p>
+      <div class="scenario-timeline">
+        <div class="tl-event tl-event--danger">
+          <div class="tl-label">Old key (O) is lost</div>
+          <div class="tl-detail">User creates a new key N from scratch</div>
+        </div>
+        <div class="tl-event tl-event--cyan">
+          <div class="tl-label"><code class="kind kind--stc">kind:1778</code> N publishes STC (r="new")</div>
+          <div class="tl-detail">"Lost my old key, this is my new one"</div>
+        </div>
+        <div class="tl-event tl-event--muted">
+          <div class="tl-label">O cannot publish an STC (key is lost)</div>
+          <div class="tl-detail">Only the N-side claim exists</div>
+        </div>
+        <div class="tl-event tl-event--cyan">
+          <div class="tl-label">Friends verify out-of-band and publish STAs</div>
+          <div class="tl-detail"><code class="kind kind--sta">kind:31778</code> s="support", m="video" / m="in_person"</div>
+        </div>
+        <div class="tl-event tl-event--success">
+          <div class="tl-label">Client resolution</div>
+          <div class="tl-detail">
+            NIP-XX: <strong>none</strong> (no PMA exists)<br>
+            NIP-XY: <strong style="color: var(--social-cyan)">socially_supported</strong> (2 followed supporters)
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 1.5rem; padding: 1.15rem 1.35rem; background: var(--bg-elevated); border-radius: 10px; border: 1px solid var(--border); font-size: 1rem; line-height: 1.6;">
+        <strong style="color: var(--social-cyan);">UI:</strong> "N claims to be O's successor. 2 people you follow confirmed. No prepared migration exists."
+      </div>
+    </div>
+  </div>
+
+  <!-- Scenario 2 -->
+  <div class="scenario">
+    <div class="scenario-header" onclick="this.parentElement.classList.toggle('open')">
+      <div>
+        <span class="scenario-tag scenario-tag--gold" style="margin-right: 0.75rem;">crypto</span>
+        <span class="scenario-title">Key Compromise Race</span>
+      </div>
+      <span class="scenario-chevron">&#9662;</span>
+    </div>
+    <div class="scenario-body">
+      <p style="font-size: 1.05rem; color: var(--text-dim); margin-bottom: 1.75rem; line-height: 1.6;">
+        Attacker compromises O and tries to create a fake migration. But the user had enrolled a PMA earlier.
+        The earliest Bitcoin anchor wins.
+      </p>
+      <div class="scenario-timeline">
+        <div class="tl-event tl-event--gold">
+          <div class="tl-label">User enrolled PMA at block H<sub>1</sub></div>
+          <div class="tl-detail">Migration key M is stored securely offline</div>
+        </div>
+        <div class="tl-event tl-event--danger">
+          <div class="tl-label">Attacker compromises O</div>
+          <div class="tl-detail">Attacker has the old key but not M</div>
+        </div>
+        <div class="tl-event tl-event--danger">
+          <div class="tl-label">Attacker publishes fake STC using O</div>
+          <div class="tl-detail"><code class="kind kind--stc">kind:1778</code> r="old", n=A_new (attacker's key)</div>
+        </div>
+        <div class="tl-event tl-event--danger">
+          <div class="tl-label">Attacker tries to create competing PMA</div>
+          <div class="tl-detail"><code class="kind kind--pma">kind:1776</code> Using compromised O, OTS anchors at block H<sub>2</sub></div>
+        </div>
+        <div class="tl-event tl-event--gold">
+          <div class="tl-label">User executes real migration with M</div>
+          <div class="tl-detail"><code class="kind kind--pmx">kind:1777</code> References original PMA, names real successor N</div>
+        </div>
+        <div class="tl-event tl-event--success">
+          <div class="tl-label">Client resolution</div>
+          <div class="tl-detail">
+            NIP-XX: 2 PMAs found. User's anchor H<sub>1</sub> < attacker's H<sub>2</sub><br>
+            <strong style="color: var(--success);">User's PMA is canonical. State: prepared_migrated &rarr; N</strong><br>
+            NIP-XY: Attacker's STC exists but is independent &mdash; doesn't affect NIP-XX
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 1.5rem; padding: 1.15rem 1.35rem; background: var(--bg-elevated); border-radius: 10px; border: 1px solid var(--border); font-size: 1rem; line-height: 1.6;">
+        <strong style="color: var(--crypto-gold);">Key insight:</strong> The earliest Bitcoin timestamp determines the canonical authority.
+        The attacker's later PMA has higher anchor_height and is simply not the canonical root.
+        Social claims from the attacker are shown separately and do not affect the cryptographic result.
+      </div>
+    </div>
+  </div>
+
+  <!-- Scenario 3 -->
+  <div class="scenario">
+    <div class="scenario-header" onclick="this.parentElement.classList.toggle('open')">
+      <div>
+        <span class="scenario-tag scenario-tag--both" style="margin-right: 0.75rem;">both</span>
+        <span class="scenario-title">Disputed Transition (Social Split)</span>
+      </div>
+      <span class="scenario-chevron">&#9662;</span>
+    </div>
+    <div class="scenario-body">
+      <p style="font-size: 1.05rem; color: var(--text-dim); margin-bottom: 1.75rem; line-height: 1.6;">
+        The community disagrees about a transition's legitimacy. Viewer's contacts are split.
+      </p>
+      <div class="scenario-timeline">
+        <div class="tl-event tl-event--cyan">
+          <div class="tl-label">N publishes STC (r="new")</div>
+          <div class="tl-detail">Claims to be O's successor</div>
+        </div>
+        <div class="tl-event tl-event--cyan">
+          <div class="tl-label">Friend A: STA s="support", m="voice"</div>
+          <div class="tl-detail">"I verified over a call"</div>
+        </div>
+        <div class="tl-event tl-event--danger">
+          <div class="tl-label">Friend B: STA s="oppose"</div>
+          <div class="tl-detail">"This doesn't match what I know about O"</div>
+        </div>
+        <div class="tl-event tl-event--muted">
+          <div class="tl-label">Client resolution</div>
+          <div class="tl-detail">
+            NIP-XX: <strong>none</strong> (no PMA)<br>
+            NIP-XY: <strong style="color: var(--danger);">socially_split</strong> (follow set includes support + oppose)
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 1.5rem; padding: 1.15rem 1.35rem; background: var(--bg-elevated); border-radius: 10px; border: 1px solid var(--border); font-size: 1rem; line-height: 1.6;">
+        <strong style="color: var(--danger);">UI:</strong> "Disputed transition. 1 contact supports, 1 opposes. No cryptographic migration exists. [View evidence] [Follow N] [Ignore]"
+        <br><br>
+        <strong style="color: var(--text-muted);">Rule:</strong> Client MUST NOT auto-resolve. User decides.
+      </div>
+    </div>
+  </div>
+
+  <!-- Scenario 4 -->
+  <div class="scenario">
+    <div class="scenario-header" onclick="this.parentElement.classList.toggle('open')">
+      <div>
+        <span class="scenario-tag scenario-tag--both" style="margin-right: 0.75rem;">tension</span>
+        <span class="scenario-title">Crypto Valid, Socially Opposed</span>
+      </div>
+      <span class="scenario-chevron">&#9662;</span>
+    </div>
+    <div class="scenario-body">
+      <p style="font-size: 1.05rem; color: var(--text-dim); margin-bottom: 1.75rem; line-height: 1.6;">
+        A prepared migration is cryptographically valid, but the social layer has opposition.
+        This tests the "validate separately" principle.
+      </p>
+      <div class="scenario-timeline">
+        <div class="tl-event tl-event--gold">
+          <div class="tl-label">Valid PMA + PMX chain exists</div>
+          <div class="tl-detail">NIP-XX: prepared_migrated &rarr; N</div>
+        </div>
+        <div class="tl-event tl-event--danger">
+          <div class="tl-label">Followed contacts publish "oppose" STAs</div>
+          <div class="tl-detail">"I spoke to O, they say they didn't authorize this"</div>
+        </div>
+        <div class="tl-event tl-event--muted">
+          <div class="tl-label">Client resolution</div>
+          <div class="tl-detail">
+            NIP-XX: <strong style="color: var(--success);">prepared_migrated</strong> (valid)<br>
+            NIP-XY: <strong style="color: var(--danger);">socially_opposed</strong>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 1.5rem; padding: 1.15rem 1.35rem; background: var(--bg-elevated); border-radius: 10px; border: 1px solid var(--border); font-size: 1rem; line-height: 1.6;">
+        <strong style="color: var(--warning);">Key principle:</strong> NIP-XY MUST NOT veto NIP-XX.
+        The cryptographic migration is valid on its own terms. Social opposition is surfaced as additional context, not as a revocation.
+        The client shows both layers and lets the user decide how to weigh them.
+      </div>
+    </div>
+  </div>
+
+  <!-- Scenario 5 -->
+  <div class="scenario">
+    <div class="scenario-header" onclick="this.parentElement.classList.toggle('open')">
+      <div>
+        <span class="scenario-tag scenario-tag--gold" style="margin-right: 0.75rem;">conflict</span>
+        <span class="scenario-title">Conflicting Roots (Same-Block Ambiguity)</span>
+      </div>
+      <span class="scenario-chevron">&#9662;</span>
+    </div>
+    <div class="scenario-body">
+      <p style="font-size: 1.05rem; color: var(--text-dim); margin-bottom: 1.75rem; line-height: 1.6;">
+        Two valid PMAs for the same pubkey are timestamped in the same Bitcoin block.
+        No tiebreaker exists &mdash; this is intentional.
+      </p>
+      <div class="scenario-timeline">
+        <div class="tl-event tl-event--gold">
+          <div class="tl-label">PMA #1: o=O, m=M<sub>1</sub></div>
+          <div class="tl-detail">OTS anchor at block H</div>
+        </div>
+        <div class="tl-event tl-event--gold">
+          <div class="tl-label">PMA #2: o=O, m=M<sub>2</sub></div>
+          <div class="tl-detail">OTS anchor at block H (same block!)</div>
+        </div>
+        <div class="tl-event tl-event--danger">
+          <div class="tl-label">Client resolution: conflicting_roots</div>
+          <div class="tl-detail">
+            min_anchor_height is H, but 2 PMAs share it<br>
+            <strong style="color: var(--danger);">No canonical root can be determined</strong>
+          </div>
+        </div>
+      </div>
+      <div style="margin-top: 1.5rem; padding: 1.15rem 1.35rem; background: var(--bg-elevated); border-radius: 10px; border: 1px solid var(--border); font-size: 1rem; line-height: 1.6;">
+        <strong style="color: var(--danger);">Rule:</strong> Clients MUST NOT try to break ties using event id, created_at, relay arrival time, or any other non-standard rule.
+        This ambiguity is a conflict state. The user should be shown the evidence and decide.
+      </div>
+    </div>
+  </div>
+</section>
+
+</div><!-- /container -->
+
+<footer style="padding: 4rem 0; text-align: center; border-top: 1px solid var(--border); margin-top: 3rem;">
+  <p style="font-family: 'JetBrains Mono', monospace; font-size: 0.9rem; color: var(--text-muted); letter-spacing: 0.05em;">
+    NIP-XX: PREPARED MIGRATION &middot; NIP-XY: SOCIAL TRANSITION CLAIMS AND ATTESTATIONS
+  </p>
+  <p style="font-size: 0.95rem; color: var(--text-muted); margin-top: 0.75rem;">
+    <span style="color: var(--crypto-gold);">Validate separately.</span>
+    <span style="color: var(--social-cyan);"> Present together if useful.</span>
+  </p>
+</footer>
+
+<script>
+// ── Navigation ──
+const navBtns = document.querySelectorAll('.nav-btn');
+const sections = document.querySelectorAll('.section');
+
+navBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    const target = btn.dataset.section;
+
+    navBtns.forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+
+    sections.forEach(s => s.classList.remove('active'));
+    document.getElementById(target).classList.add('active');
+
+    // Re-trigger animations
+    const phase = document.querySelectorAll(`#${target} .seq-phase`);
+    phase.forEach(p => {
+      p.style.animation = 'none';
+      p.offsetHeight;
+      p.style.animation = '';
+    });
+
+    window.scrollTo({ top: document.querySelector('.nav').offsetTop, behavior: 'smooth' });
+  });
+});
+
+// ── Scroll reveal ──
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      entry.target.classList.add('visible');
+    }
+  });
+}, { threshold: 0.1 });
+
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+</script>
+</body>
+</html>

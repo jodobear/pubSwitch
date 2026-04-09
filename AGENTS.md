@@ -53,7 +53,6 @@ This repo does not require exhaustive audits before every slice closes.
 ```bash
 bun run cli --help
 bun run check:active
-bun test apps/legacy-demo-client && bun run --cwd apps/legacy-demo-client build   # optional quarantined browser smoke
 ```
 
 ## What Not To Do

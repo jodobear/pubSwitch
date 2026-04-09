@@ -22,8 +22,3 @@ Public docs for the pubSwitch CLI-first PoC.
 
 - [Prepared Migration reference draft](references/nip-xx-prepared-migration.md)
 - [Social Transition reference draft](references/nip-xy-social-transition-claims-and-attestations.md)
-
-## Legacy Context
-
-- `apps/legacy-demo-client`
-  Quarantined browser demo surface. It is not the authoritative implementation route.

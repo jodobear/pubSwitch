@@ -14,7 +14,6 @@ Two independent protocol paths:
   - `prepared-migration`
   - `social-transition`
   - `operate-transition`
-- the browser app in `apps/legacy-demo-client` is quarantined legacy context
 - public docs start at [docs/INDEX.md](docs/INDEX.md)
 
 ## Quick Start
@@ -25,13 +24,6 @@ bun run cli --help
 bun run testing:setup
 bun run testing:smoke
 bun run check:active
-```
-
-Optional legacy browser smoke:
-
-```bash
-bun test apps/legacy-demo-client
-bun run --cwd apps/legacy-demo-client build
 ```
 
 ## Operator Workflow
@@ -101,7 +93,6 @@ bun run verify:real-ots-corpus
 
 ```text
 apps/
-  legacy-demo-client   quarantined browser demo surface
   ots-helper           local proof inspection and real-OTS helper
 packages/
   evidence-bundles     shared prepared/social bundle import-export

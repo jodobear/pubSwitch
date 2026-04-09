@@ -27,7 +27,6 @@ Current execution state for `tack`.
   - `social-transition`
   - `operate-transition`
 - Path A and Path C stay independent in protocol code and only meet in combined operator reporting
-- the browser app is quarantined in `apps/legacy-demo-client`; it is not the implementation target
 
 ## Stable Operator Contract
 
@@ -83,27 +82,18 @@ Current execution state for `tack`.
 - current verification gate:
   - `bun run cli --help`
   - `bun run check:active`
-  - optional: `bun test apps/legacy-demo-client`
-  - optional: `bun run --cwd apps/legacy-demo-client build`
 
 ## Audit Status
 
 - a fresh cross-lane audit was completed after hardening
-- main findings:
-  - control docs had accumulated stale command history
-  - README mixed current operator guidance with repo archaeology
-  - root-level legacy browser scripts kept the quarantined lane more visible than needed
-  - removed-command guidance and test seams were still sitting in the live CLI implementation
-- remediation completed so far:
-  - control-doc and README cleanup
-  - removal of root-level legacy browser scripts from the main repo surface
-  - removal of removed-command scaffolding from the public CLI parser
-- next audit follow-up is the relay test seam inside `scripts/protocol-cli.ts`
+- the active operator surface is now clean
+- remaining cleanup is repo-shape follow-up, not public CLI redesign
 
 ## Legacy Note
 
 - older implementation history remains in git
-- older browser/demo lanes are preserved only as quarantined legacy context
+- older browser/demo lanes remain as quarantined legacy context
+- older public draft and implementation-note material has been moved under `.private-docs/archive/`
 - do not re-open browser-first or demo-first design without an explicit new slice
 
 ## Public Docs
