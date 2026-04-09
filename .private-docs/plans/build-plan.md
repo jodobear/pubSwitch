@@ -88,6 +88,8 @@ Status:
 
 - steps 1-4 are complete
 - step 5 is the next likely cleanup slice if we keep pushing the cross-lane audit
+- public docs now route through `README.md`, `docs/INDEX.md`, `docs/operator-runbook.md`, and `docs/demo-script.md`
+- the repo now also has a small public `testing/` lane for setup, local smoke, and relay-oriented operation helpers
 
 ## Near-Term Non-Goals
 

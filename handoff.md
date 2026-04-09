@@ -105,3 +105,12 @@ Current execution state for `tack`.
 - older implementation history remains in git
 - older browser/demo lanes are preserved only as quarantined legacy context
 - do not re-open browser-first or demo-first design without an explicit new slice
+
+## Public Docs
+
+- [README.md](/workspace/projects/pubSwitch/README.md) is now the lean repo entrypoint
+- [docs/INDEX.md](/workspace/projects/pubSwitch/docs/INDEX.md) is the public docs router
+- [docs/operator-runbook.md](/workspace/projects/pubSwitch/docs/operator-runbook.md) is the operator guidance page
+- [docs/demo-script.md](/workspace/projects/pubSwitch/docs/demo-script.md) is the canonical CLI walkthrough
+- [testing/README.md](/workspace/projects/pubSwitch/testing/README.md) is the testing surface entrypoint
+- the walkthrough is aligned to the end-to-end workflow smoke in [scripts/protocol-cli-command.test.ts](/workspace/projects/pubSwitch/scripts/protocol-cli-command.test.ts)
