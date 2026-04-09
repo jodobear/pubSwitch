@@ -17,7 +17,7 @@ Read these first:
 - `AGENTS.md`
 - `handoff.md`
 - `.private-docs/plans/build-plan.md`
-- `.private-docs/plans/follow-on-options-packet.md`
+- `.private-docs/plans/current-options-packet.md`
 
 ## Canonical Control Docs
 
@@ -27,7 +27,7 @@ Read these first:
   - current state and next work
 - `.private-docs/plans/build-plan.md`
   - active execution baseline
-- `.private-docs/plans/follow-on-options-packet.md`
+- `.private-docs/plans/current-options-packet.md`
   - current bounded slice
 - `.private-docs/guides/PROCESS_CONTROL.md`
   - control-surface rules
@@ -44,12 +44,10 @@ Read these first:
   - `.private-docs/guides/FAST_POC_GATE.md`
 - current execution:
   - `.private-docs/plans/build-plan.md`
-  - `.private-docs/plans/follow-on-options-packet.md`
+  - `.private-docs/plans/current-options-packet.md`
 - recently completed implementation loop:
   - `.private-docs/plans/path-a-real-ots-chain-root-loop.md`
   - `.private-docs/plans/path-a-real-ots-adoption-loop.md`
-- recently completed packet:
-  - `.private-docs/plans/demo-readiness-packet.md`
 - completed implementation loop reference:
   - `.private-docs/plans/path-a-real-ots-corpus-loop.md`
   - `.private-docs/plans/path-a-conflict-playback-loop.md`

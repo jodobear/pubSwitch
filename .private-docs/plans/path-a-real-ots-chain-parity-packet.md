@@ -48,4 +48,4 @@ Out of scope:
 
 - demo, verify, and publish surfaces now distinguish `real_helper_verified`, `mixed_real_root`, and `fixture_placeholder`
 - app-layer provenance now includes proof-backing and shared real corpus identifiers
-- the next active packet is `demo-readiness-packet.md`
+- the next active packet is `current-options-packet.md`

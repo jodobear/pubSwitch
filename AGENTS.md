@@ -11,7 +11,7 @@ state, but use looser gates so we can reach a demo quickly.
 - Read `AGENTS.md` and `handoff.md`.
 - Read `.private-docs/README.md`.
 - Read `.private-docs/plans/build-plan.md`.
-- Read `.private-docs/plans/follow-on-options-packet.md`.
+- Read `.private-docs/plans/current-options-packet.md`.
 - Read `.private-docs/research/proposal-and-research-review.md` when changing protocol direction,
   implementation shape, or demo scope.
 
@@ -28,7 +28,7 @@ state, but use looser gates so we can reach a demo quickly.
 
 - `docs/references/` are draft inputs and implementation references
 - `.private-docs/plans/build-plan.md` is the active execution baseline
-- `.private-docs/plans/follow-on-options-packet.md` is the active packet
+- `.private-docs/plans/current-options-packet.md` is the active packet
 - `.private-docs/research/proposal-and-research-review.md` is the current protocol/research
   synthesis
 

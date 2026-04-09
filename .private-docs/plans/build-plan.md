@@ -3,7 +3,7 @@ title: Build Plan
 doc_type: plan
 status: active
 owner: tack
-phase: p7-follow-on-options
+phase: p8-cli-baseline
 canonical: true
 ---
 

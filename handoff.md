@@ -3,7 +3,7 @@ title: Handoff
 doc_type: state
 status: active
 owner: tack
-phase: p7-follow-on-options
+phase: p8-cli-baseline
 canonical: true
 ---
 
@@ -16,7 +16,7 @@ Current execution state for `tack`.
 - `AGENTS.md`
 - `.private-docs/README.md`
 - `.private-docs/plans/build-plan.md`
-- `.private-docs/plans/follow-on-options-packet.md`
+- `.private-docs/plans/current-options-packet.md`
 - `.private-docs/research/proposal-and-research-review.md`
 
 ## Current Reality

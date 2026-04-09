@@ -9,11 +9,10 @@ Read now:
 - handoff.md
 - .private-docs/README.md
 - .private-docs/plans/build-plan.md
-- .private-docs/plans/follow-on-options-packet.md
+- .private-docs/plans/current-options-packet.md
 
 Load on demand:
-- .private-docs/plans/follow-on-options-packet.md
-- .private-docs/plans/demo-readiness-packet.md
+- .private-docs/plans/current-options-packet.md
 - .private-docs/plans/path-a-real-ots-chain-root-packet.md
 - .private-docs/plans/path-a-real-ots-chain-root-loop.md
 - .private-docs/plans/path-a-real-ots-chain-conflict-packet.md

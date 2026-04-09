@@ -317,6 +317,5 @@ testing/scripts/relay-operator.sh publish-watch --relays wss://relay.one --watch
 ## PoC Limits
 
 - this is still a PoC operator CLI, not a packaged production tool
-- the browser app remains quarantined legacy context
 - protocol truth lives in the protocol packages and saved bundles, not in a browser workflow
 - local or summary-backed proof posture is still meaningful operator evidence, but not the same thing as full relay replayability
