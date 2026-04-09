@@ -27,6 +27,7 @@ Current execution state for `tack`.
   - `social-transition`
   - `operate-transition`
 - Path A and Path C stay independent in protocol code and only meet in combined operator reporting
+- the repo no longer carries a browser app; active work starts from the CLI/helper lane
 
 ## Stable Operator Contract
 
@@ -92,7 +93,6 @@ Current execution state for `tack`.
 ## Legacy Note
 
 - older implementation history remains in git
-- older browser/demo lanes remain as quarantined legacy context
 - older public draft and implementation-note material has been moved under `.private-docs/archive/`
 - do not re-open browser-first or demo-first design without an explicit new slice
 

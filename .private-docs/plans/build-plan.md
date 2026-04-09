@@ -67,8 +67,8 @@ Date: 2026-04-09
 
 - public docs route through `README.md`, `docs/INDEX.md`, `docs/operator-runbook.md`, and `docs/demo-script.md`
 - the repo also has a small public `testing/` lane for setup, local smoke, and relay-oriented operation helpers
+- the repo no longer carries a browser app or frontend build surface
 - older public draft sets and implementation-note material are archived under `.private-docs/archive/`
-- older browser/demo work remains quarantined and is not part of the active implementation contract
 
 ## Near-Term Non-Goals
 
