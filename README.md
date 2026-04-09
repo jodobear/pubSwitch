@@ -15,12 +15,15 @@ Two independent protocol paths:
   - `social-transition`
   - `operate-transition`
 - the browser app in `apps/legacy-demo-client` is quarantined legacy context
+- public docs start at [docs/INDEX.md](docs/INDEX.md)
 
 ## Quick Start
 
 ```bash
 bun install
 bun run cli --help
+bun run testing:setup
+bun run testing:smoke
 bun run check:active
 ```
 
@@ -31,72 +34,24 @@ bun test apps/legacy-demo-client
 bun run --cwd apps/legacy-demo-client build
 ```
 
-## Operator Workflows
+## Operator Workflow
 
-### Prepared Migration
+For operator guidance, use:
 
-Start a fresh Path A workflow:
+- [docs/operator-runbook.md](docs/operator-runbook.md)
+- [docs/demo-script.md](docs/demo-script.md)
+- [testing/README.md](testing/README.md)
 
-```bash
-bun run cli prepared-migration \
-  --old-secret <hex> \
-  --migration-secret <hex> \
-  --next-migration-secret <hex> \
-  --new-secret <hex> \
-  --out-dir output/prepared \
-  --root-proof bitcoin_confirmed --root-anchor-height 840100 \
-  --update-proof bitcoin_confirmed --update-anchor-height 840101
-```
+Route by job:
 
-Resume from a saved bundle or bundle directory:
+- start or resume Path A:
+  `prepared-migration`
+- append social evidence:
+  `social-transition`
+- inspect, publish, or watch saved prepared/social bundles:
+  `operate-transition`
 
-```bash
-bun run cli prepared-migration \
-  --bundle-dir output/prepared \
-  --out-dir output/prepared \
-  --old-secret <hex> \
-  --current-migration-secret <hex> \
-  --next-migration-secret <hex> \
-  --new-secret <hex> \
-  --root-proof-event root-proof.json \
-  --update-proof-summary update-proof-summary.json
-```
-
-### Social Transition
-
-Append a claim when `--stance` is omitted, or an attestation when `--stance` is supplied:
-
-```bash
-bun run cli social-transition \
-  --prepared-bundle-dir output/prepared \
-  --social-bundle-dir output/social \
-  --signer-secret <hex> \
-  --stance support \
-  --out-dir output/social \
-  --json
-```
-
-`social-transition` can also work from explicit `--old-pubkey` and `--new-pubkey` when you are not
-deriving the pair from a prepared bundle.
-
-### Combined Operator Flow
-
-Use `operate-transition` as the only saved-bundle inspect/publish/watch route:
-
-```bash
-bun run cli operate-transition \
-  --prepared-bundle-dir output/prepared \
-  --social-bundle-dir output/social \
-  --publish \
-  --watch-seconds 8 \
-  --json
-```
-
-With no `--publish` and no `--watch-seconds`, `operate-transition` is the canonical inspection
-command.
-
-Use `--require-fully-relayable` when publish should fail instead of warning on summary-only local
-proof posture.
+`operate-transition` is the only saved-bundle inspect/publish/watch route.
 
 ## CLI Contract
 
@@ -159,7 +114,13 @@ scripts/
   verify-scenario.ts   fixture verification tooling
   publish-scenario.ts  fixture publish-plan tooling
 docs/
+  INDEX.md              public docs router
+  operator-runbook.md   operator guidance for local and relay-backed flows
+  demo-script.md        canonical local CLI walkthrough
   v3/                  active protocol drafts
+testing/
+  README.md             testing entrypoint
+  scripts/              bootstrap, smoke, and relay helper scripts
 ```
 
 ## Non-Goals

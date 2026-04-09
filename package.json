@@ -7,6 +7,8 @@
   ],
   "scripts": {
     "cli": "bun scripts/protocol-cli.ts",
+    "testing:setup": "bash testing/scripts/setup-env.sh --print-paths",
+    "testing:smoke": "bash testing/scripts/runbook-smoke.sh",
     "typecheck": "bunx tsc --noEmit -p tsconfig.json",
     "test": "bun test",
     "test:active": "bun test scripts/protocol-cli-lib.test.ts scripts/protocol-cli-command.test.ts apps/ots-helper/src/__tests__ packages/protocol-a/src/__tests__ packages/protocol-c/src/__tests__ packages/protocol-shared/src/__tests__ packages/evidence-bundles/src/__tests__ packages/fixtures/src/__tests__",

@@ -1078,7 +1078,7 @@ describe("protocol cli command", () => {
     expect(methodResult.stderr).toContain("carrier-pigeon");
   });
 
-  test("workflow directory smoke runs prepared, social, and combined operator flows end to end", async () => {
+  test("documented cli walkthrough runs prepared, social, and combined operator flows end to end", async () => {
     const dir = await mkdtemp(join(tmpdir(), "pubswitch-cli-workflow-smoke-"));
     const preparedDir = join(dir, "prepared");
     const socialDir = join(dir, "social");
